@@ -16,11 +16,8 @@ public class MessageService {
 
     public List<Message> searchByEmail(String email) {
         // Формируем паттерны для поиска email в XML тегах
-        String pattern1 = "<To>" + email + "</To>";
-        String pattern2 = "<CC>" + email + "</CC>";
-        String pattern3 = "<BCC>" + email + "</BCC>";
-
-        return messageRepository.findByEmailInXml(pattern1, pattern2, pattern3);
+        String pattern1 = email;
+        return messageRepository.findByEmailInXml(pattern1);
     }
 
     public int resendMessages(List<Long> messageIds) {
