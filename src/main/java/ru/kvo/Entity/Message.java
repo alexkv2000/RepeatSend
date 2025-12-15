@@ -22,7 +22,7 @@ public class Message {
     @Column(name = "date_create", nullable = false)
     private LocalDateTime dateCreate;
 
-    @Column(name = "status", nullable = false)
+    @Column(name = "status")
     private String status;
 
     @Column(name = "date_end")
