@@ -310,47 +310,181 @@
     }
 
     // Отображение деталей сообщения
+    // function displayMessageDetails(messageId) {
+    //     console.log('Отображение деталей сообщения ID:', messageId);
+    //
+    //     const message = allMessages[messageId];
+    //     if (!message) {
+    //         console.warn('Сообщение не найдено в кэше:', messageId);
+    //
+    //         // Запросим сообщение с сервера
+    //         loadMessageFromServer(messageId);
+    //         return;
+    //     }
+    //
+    //     // Обновляем заголовок
+    //     $('#detailMessageId').text('ID: ' + message.id);
+    //     $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
+    //
+    //     // Отображаем XML
+    //     showXmlContent(message.message);
+    // }
+    // Отображение деталей сообщения (обновленная версия)
     function displayMessageDetails(messageId) {
         console.log('Отображение деталей сообщения ID:', messageId);
 
-        const message = allMessages[messageId];
-        if (!message) {
-            console.warn('Сообщение не найдено в кэше:', messageId);
-
-            // Запросим сообщение с сервера
-            loadMessageFromServer(messageId);
-            return;
-        }
-
         // Обновляем заголовок
-        $('#detailMessageId').text('ID: ' + message.id);
-        $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
+        $('#detailMessageId').text('ID: ' + messageId);
+        $('#detailMessageId').removeClass('bg-secondary').addClass('bg-primary');
 
-        // Отображаем XML
-        showXmlContent(message.message);
+        // Показываем загрузку
+        $('#xmlContainer').html(`
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2 text-muted">Загрузка содержимого...</p>
+        </div>
+    `);
+
+        // Загружаем Body с сервера
+        loadMessageFromServer(messageId);
     }
 
+    // // Загрузка сообщения с сервера
+    // function loadMessageFromServer(messageId) {
+    //     $.ajax({
+    //         url: '/api/message/' + messageId,
+    //         type: 'GET',
+    //         success: function(response) {
+    //             if (response.success && response.message) {
+    //                 // Сохраняем в кэш
+    //                 allMessages[messageId] = response.message;
+    //                 // Отображаем
+    //                 $('#detailMessageId').text('ID: ' + response.message.id);
+    //                 $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
+    //                 showXmlContent(response.message.message);
+    //             }
+    //         },
+    //         error: function() {
+    //             $('#xmlContainer').html('<div class="text-danger">Ошибка загрузки сообщения</div>');
+    //         }
+    //     });
+    // }
     // Загрузка сообщения с сервера
     function loadMessageFromServer(messageId) {
+        // Загружаем только Body для экономии трафика
         $.ajax({
-            url: '/api/message/' + messageId,
+            url: '/api/message/' + messageId + '/body',
             type: 'GET',
             success: function(response) {
-                if (response.success && response.message) {
-                    // Сохраняем в кэш
-                    allMessages[messageId] = response.message;
-                    // Отображаем
-                    $('#detailMessageId').text('ID: ' + response.message.id);
+                if (response.success && response.bodyContent) {
+                    // Обновляем заголовок
+                    $('#detailMessageId').text('ID: ' + messageId);
                     $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
-                    showXmlContent(response.message.message);
+
+                    // Отображаем Body как HTML
+                    showBodyContent(response.bodyContent);
+                } else {
+                    $('#xmlContainer').html('<div class="alert alert-warning">' +
+                        (response.error || 'Не удалось загрузить содержимое') + '</div>');
                 }
             },
-            error: function() {
-                $('#xmlContainer').html('<div class="text-danger">Ошибка загрузки сообщения</div>');
+            error: function(xhr, status, error) {
+                $('#xmlContainer').html('<div class="alert alert-danger">Ошибка загрузки сообщения: ' +
+                    error + '</div>');
             }
         });
     }
+    // Отображение Body содержимого как HTML
+    function showBodyContent(bodyContent) {
+        if (!bodyContent) {
+            $('#xmlContainer').html('<div class="text-muted">Нет содержимого Body</div>');
+            return;
+        }
 
+        try {
+            // Проверяем, содержит ли Body HTML теги
+            const hasHtmlTags = /<[a-z][\s\S]*>/i.test(bodyContent);
+
+            if (hasHtmlTags) {
+                // Если есть HTML теги, отображаем как HTML
+                const $container = $('#xmlContainer');
+                $container.empty();
+
+                // Создаем iframe для безопасного отображения HTML
+                const iframeId = 'body-iframe-' + Date.now();
+                const iframeHtml = `
+                <div class="border rounded bg-white">
+                    <div class="border-bottom p-2 bg-light d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Предпросмотр HTML содержимого</small>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="showRawBody()">
+                            Показать исходный код
+                        </button>
+                    </div>
+                    <iframe
+                        id="${iframeId}"
+                        srcdoc="${escapeHtmlForIframe(bodyContent)}"
+                        style="width: 100%; height: 400px; border: none;"
+                        sandbox="allow-same-origin"
+                        title="HTML содержимое письма"
+                    ></iframe>
+                </div>
+                <div id="rawBodyContainer" style="display: none;">
+                    <pre class="p-3 bg-light border rounded" style="max-height: 400px; overflow: auto;">${escapeHtml(bodyContent)}</pre>
+                </div>
+            `;
+
+                $container.html(iframeHtml);
+
+                // Настраиваем iframe
+                setTimeout(() => {
+                    const iframe = document.getElementById(iframeId);
+                    if (iframe) {
+                        iframe.onload = function() {
+                            try {
+                                // Пытаемся подогнать высоту iframe под содержимое
+                                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                                iframe.style.height = Math.max(400, doc.body.scrollHeight + 20) + 'px';
+                            } catch (e) {
+                                console.log('Не удалось изменить размер iframe:', e);
+                            }
+                        };
+                    }
+                }, 100);
+
+            } else {
+                // Если нет HTML тегов, отображаем как текст
+                $('#xmlContainer').html(`
+                <div class="border rounded">
+                    <div class="border-bottom p-2 bg-light">
+                        <small class="text-muted">Текстовое содержимое Body</small>
+                    </div>
+                    <div class="p-3" style="max-height: 400px; overflow: auto;">
+                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${escapeHtml(bodyContent)}</pre>
+                    </div>
+                </div>
+            `);
+            }
+        } catch (e) {
+            console.error('Ошибка отображения Body:', e);
+            $('#xmlContainer').html('<div class="alert alert-danger">Ошибка при отображении содержимого: ' +
+                e.message + '</div>');
+        }
+    }
+    // Показать исходный код Body
+    function showRawBody() {
+        const iframeContainer = $('#xmlContainer .border:first');
+        const rawContainer = $('#rawBodyContainer');
+
+        if (iframeContainer.is(':visible')) {
+            iframeContainer.hide();
+            rawContainer.show();
+        } else {
+            iframeContainer.show();
+            rawContainer.hide();
+        }
+    }
     // Отображение XML содержимого
     function showXmlContent(xmlContent) {
         if (!xmlContent) {
@@ -385,12 +519,27 @@
     }
 
     // Экранирование HTML
+    // function escapeHtml(text) {
+    //     const div = document.createElement('div');
+    //     div.textContent = text;
+    //     return div.innerHTML;
+    // }
+    // Экранирование HTML для безопасной вставки в iframe
+    function escapeHtmlForIframe(text) {
+        return escapeHtml(text)
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\n/g, ' ')
+            .replace(/\r/g, ' ');
+    }
+
+    // Экранирование HTML (базовое)
     function escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
-
     // Переключение выбора чекбокса
     function toggleSelect(messageId, checkbox) {
         const row = $(checkbox).closest('tr');
