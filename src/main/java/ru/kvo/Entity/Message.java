@@ -16,7 +16,7 @@ public class Message {
     @Column(name = "kafka_topic", nullable = false)
     private String kafkaTopic;
 
-    @Column(name = "message", nullable = false, length = 10000)
+    @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
     @Column(name = "date_create", nullable = false)
