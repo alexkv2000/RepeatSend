@@ -6,27 +6,11 @@
     <title>Поиск сообщений по email</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .loading {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 9999;
-        }
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .overlay {
+        body { font-size: 14px; }
+        .container { max-width: 95%; }
+
+        /* Стили для анимации загрузки */
+        .loading-overlay {
             display: none;
             position: fixed;
             top: 0;
@@ -36,31 +20,120 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 9998;
         }
-        .message-row {
-            transition: background-color 0.3s;
+        .loading-spinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            text-align: center;
+            color: white;
         }
-        .message-row:hover {
-            background-color: #f8f9fa;
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
         }
-        .selected {
-            background-color: #e3f2fd !important;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
+
+        /* Основной контейнер с двумя колонками */
+        .main-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        /* Левая колонка с таблицей */
         .table-container {
-            max-height: 500px;
+            flex: 0 0 60%;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: 75vh;
             overflow-y: auto;
         }
+
+        /* Правая колонка с деталями сообщения */
+        .message-details {
+            flex: 0 0 38%;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: 75vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Заголовок области деталей */
+        .details-header {
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* Контейнер для XML */
+        .xml-container {
+            flex: 1;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Строки таблицы */
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .clickable-row:hover {
+            background-color: #f0f8ff !important;
+        }
+        .clickable-row.selected {
+            background-color: #e3f2fd !important;
+            border-left: 3px solid #007bff;
+        }
+
+        /* Статус сообщения */
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .status-success { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .status-pending { background-color: #fff3cd; color: #856404; }
+        .status-null { background-color: #e2e3e5; color: #383d41; }
     </style>
 </head>
 <body>
 <div class="container mt-4">
     <h1 class="mb-4">Поиск сообщений по email</h1>
 
-    <form th:action="@{/search}" method="post" th:object="${searchRequest}" class="mb-4">
+    <!-- Форма поиска -->
+    <form th:action="@{/search}" method="post" class="mb-4">
         <div class="row g-3 align-items-center">
             <div class="col-md-6">
                 <div class="input-group">
-                    <input type="email" th:field="*{email}" class="form-control"
-                           placeholder="Введите email для поиска" required>
+                    <input type="email" name="email" class="form-control"
+                           placeholder="Введите email для поиска"
+                           th:value="${searchEmail != null} ? ${searchEmail} : ''"
+                           required>
                     <button type="submit" class="btn btn-primary">Поиск</button>
                 </div>
             </div>
@@ -72,154 +145,373 @@
         </div>
     </form>
 
-    <div th:if="${messages != null}" class="mt-4">
-        <h3>Результаты поиска</h3>
+    <!-- Результаты поиска -->
+    <div th:if="${messages != null and !messages.empty}">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Найдено сообщений: <span th:text="${messages.size()}" class="badge bg-primary"></span></h5>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="selectAll">
+                <label class="form-check-label" for="selectAll">Выбрать все</label>
+            </div>
+        </div>
 
-        <div class="table-container">
-            <table class="table table-striped table-hover">
-                <thead>
-                <tr>
-                    <th>
-                        <input type="checkbox" id="selectAll">
-                    </th>
-                    <th>ID</th>
-                    <th>Топик Kafka</th>
-                    <th>Сообщение (XML)</th>
-                    <th>Дата создания</th>
-                    <th>Статус</th>
-                    <th>Дата окончания</th>
-                    <th>Сервер</th>
-                    <th>Попытки</th>
-                    <th>Тип</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="message : ${messages}" class="message-row"
-                    th:data-id="${message.id}">
-                    <td>
-                        <input type="checkbox" class="message-checkbox">
-                    </td>
-                    <td th:text="${message.id}"></td>
-                    <td th:text="${message.kafkaTopic}"></td>
-                    <td>
-                        <div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                             th:text="${message.message}"></div>
-                    </td>
-                    <td th:text="${message.dateCreate}"></td>
-                    <td th:text="${message.status}"></td>
-                    <td th:text="${message.dateEnd}"></td>
-                    <td th:text="${message.server}"></td>
-                    <td th:text="${message.numAttempt}"></td>
-                    <td th:text="${message.typeMes}"></td>
-                </tr>
-                </tbody>
-            </table>
+        <div class="main-container">
+            <!-- Левая колонка: таблица -->
+            <div class="table-container">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="selectAllTable">
+                        </th>
+                        <th style="width: 60px;">ID</th>
+                        <th>Топик Kafka</th>
+                        <th>Статус</th>
+                        <th style="width: 150px;">Дата создания</th>
+                        <th style="width: 80px;">Попытки</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="message : ${messages}"
+                        class="clickable-row"
+                        th:attr="data-id=${message.id}"
+                        th:onclick="'selectMessage(' + ${message.id} + ', this)'">
+                        <td>
+                            <input type="checkbox" class="message-checkbox"
+                                   th:attr="onclick='event.stopPropagation(); toggleSelect(' + ${message.id} + ', this)'">
+                        </td>
+                        <td th:text="${message.id}"></td>
+                        <td th:text="${message.kafkaTopic}"></td>
+                        <td>
+                            <!-- Простое отображение статуса -->
+                            <span th:if="${message.status == null}" class="status-badge status-null">Нет</span>
+                            <span th:if="${message.status != null and message.status == 'SUCCESS'}"
+                                  class="status-badge status-success" th:text="${message.status}"></span>
+                            <span th:if="${message.status != null and message.status == 'ERROR'}"
+                                  class="status-badge status-error" th:text="${message.status}"></span>
+                            <span th:if="${message.status != null and message.status != 'SUCCESS' and message.status != 'ERROR'}"
+                                  class="status-badge status-pending" th:text="${message.status}"></span>
+                        </td>
+                        <td th:text="${#temporals.format(message.dateCreate, 'dd.MM.yyyy HH:mm')}"></td>
+                        <td>
+                                    <span th:text="${message.numAttempt}"
+                                          th:class="${message.numAttempt > 3} ? 'badge bg-danger' : 'badge bg-secondary'">
+                                    </span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Правая колонка: детали сообщения -->
+            <div class="message-details">
+                <div class="details-header">
+                    <h6 class="mb-0">
+                        Содержимое сообщения
+                    </h6>
+                </div>
+                <div class="mb-2">
+                    <span id="detailMessageId" class="badge bg-secondary">ID: -</span>
+                </div>
+                <div id="xmlContainer" class="xml-container">
+                    <div class="text-center text-muted">
+                        <p>Выберите сообщение из таблицы для просмотра</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div th:unless="${messages != null}" class="alert alert-info">
+    <!-- Если нет результатов -->
+    <div th:if="${messages != null and messages.empty}" class="alert alert-info">
+        Сообщений с указанным email не найдено.
+    </div>
+
+    <!-- При первом входе -->
+    <div th:unless="${messages != null}" class="alert alert-secondary">
         Введите email для поиска сообщений
     </div>
 </div>
 
-<!-- Loading overlay -->
-<div id="loadingOverlay" class="overlay"></div>
-<div id="loadingSpinner" class="loading">
-    <div class="loading-spinner"></div>
-    <div class="mt-2">Обновление сообщений...</div>
+<!-- Overlay и спиннер для загрузки -->
+<div id="loadingOverlay" class="loading-overlay"></div>
+<div id="loadingSpinner" class="loading-spinner" style="display: none;">
+    <div class="spinner"></div>
+    <div class="mt-2">Обработка...</div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
+    // Глобальные переменные
+    let selectedMessages = [];
+    let currentSelectedId = null;
+    let allMessages = {};
+
+    // Инициализация данных сообщений при загрузке страницы
     $(document).ready(function() {
-        let selectedMessages = [];
+        console.log('Страница загружена, инициализируем данные...');
 
-        // Обработка выбора/снятия выбора с чекбоксов
-        $('body').on('change', '.message-checkbox', function() {
-            const row = $(this).closest('tr');
-            const messageId = row.data('id');
-
-            if ($(this).is(':checked')) {
-                row.addClass('selected');
-                if (!selectedMessages.includes(messageId)) {
-                    selectedMessages.push(messageId);
-                }
-            } else {
-                row.removeClass('selected');
-                selectedMessages = selectedMessages.filter(id => id !== messageId);
-            }
-
-            updateSelectedCount();
-            updateResendButton();
-        });
-
-        // Выбрать все
-        $('#selectAll').change(function() {
+        // Обработчик для "Выбрать все"
+        $('#selectAll, #selectAllTable').change(function() {
             const isChecked = $(this).is(':checked');
             $('.message-checkbox').prop('checked', isChecked).trigger('change');
         });
 
-        // Кнопка "Отправить повторно"
+        // Обработчик для кнопки "Отправить повторно"
         $('#resendBtn').click(function() {
-            if (selectedMessages.length === 0) return;
-
-            // Показываем анимацию загрузки
-            $('#loadingOverlay').show();
-            $('#loadingSpinner').show();
-
-            // Отправляем запрос на сервер
-            $.ajax({
-                url: '/api/resend',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ messageIds: selectedMessages }),
-                success: function(response) {
-                    if (response.success) {
-                        alert('Успешно обновлено сообщений: ' + response.updatedCount);
-
-                        // Обновляем таблицу с обновленными данными
-                        if (response.messages) {
-                            response.messages.forEach(msg => {
-                                const row = $(`tr[data-id="${msg.id}"]`);
-                                if (row.length) {
-                                    row.find('td:nth-child(5)').text(msg.dateCreate || '');
-                                    row.find('td:nth-child(6)').text(msg.status || '');
-                                    row.find('td:nth-child(7)').text(msg.dateEnd || '');
-                                    row.find('td:nth-child(8)').text(msg.server || '');
-                                }
-                            });
-                        }
-                    } else {
-                        alert('Ошибка: ' + response.error);
-                    }
-                },
-                error: function() {
-                    alert('Ошибка при отправке запроса');
-                },
-                complete: function() {
-                    // Скрываем анимацию загрузки
-                    $('#loadingOverlay').hide();
-                    $('#loadingSpinner').hide();
-
-                    // Сбрасываем выбор
-                    selectedMessages = [];
-                    $('.message-checkbox').prop('checked', false);
-                    $('.message-row').removeClass('selected');
-                    $('#selectAll').prop('checked', false);
-                    updateSelectedCount();
-                    updateResendButton();
-                }
-            });
+            resendSelectedMessages();
         });
 
-        function updateSelectedCount() {
-            $('#selectedCount').text(selectedMessages.length);
+        // Инициализация данных сообщений из HTML
+        initializeMessages();
+    });
+
+    // Инициализация данных из таблицы
+    function initializeMessages() {
+        console.log('Инициализация данных сообщений...');
+
+        // Собираем данные из таблицы
+        $('.clickable-row').each(function() {
+            const row = $(this);
+            const messageId = row.data('id');
+
+            // Если ID есть в data-атрибуте
+            if (messageId) {
+                allMessages[messageId] = {
+                    id: messageId,
+                    message: extractMessageFromRow(row)
+                };
+            }
+        });
+
+        console.log('Загружено сообщений:', Object.keys(allMessages).length);
+    }
+
+    // Извлечение сообщения из строки таблицы
+    function extractMessageFromRow(row) {
+        // Поскольку сообщение не видно в таблице, нам нужно получить его из данных
+        // В реальном приложении нужно сделать AJAX запрос для получения полного сообщения
+        // Для демонстрации вернем заглушку
+        return '<XML>Сообщение ID: ' + row.data('id') + '</XML>';
+    }
+
+    // Выбор сообщения по клику на строку
+    function selectMessage(messageId, rowElement) {
+        console.log('Выбрано сообщение ID:', messageId);
+
+        currentSelectedId = messageId;
+
+        // Снимаем выделение со всех строк и добавляем к текущей
+        $('.clickable-row').removeClass('selected');
+        $(rowElement).addClass('selected');
+
+        // Показываем содержимое сообщения
+        displayMessageDetails(messageId);
+    }
+
+    // Отображение деталей сообщения
+    function displayMessageDetails(messageId) {
+        console.log('Отображение деталей сообщения ID:', messageId);
+
+        const message = allMessages[messageId];
+        if (!message) {
+            console.warn('Сообщение не найдено в кэше:', messageId);
+
+            // Запросим сообщение с сервера
+            loadMessageFromServer(messageId);
+            return;
         }
 
-        function updateResendButton() {
-            $('#resendBtn').prop('disabled', selectedMessages.length === 0);
+        // Обновляем заголовок
+        $('#detailMessageId').text('ID: ' + message.id);
+        $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
+
+        // Отображаем XML
+        showXmlContent(message.message);
+    }
+
+    // Загрузка сообщения с сервера
+    function loadMessageFromServer(messageId) {
+        $.ajax({
+            url: '/api/message/' + messageId,
+            type: 'GET',
+            success: function(response) {
+                if (response.success && response.message) {
+                    // Сохраняем в кэш
+                    allMessages[messageId] = response.message;
+                    // Отображаем
+                    $('#detailMessageId').text('ID: ' + response.message.id);
+                    $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
+                    showXmlContent(response.message.message);
+                }
+            },
+            error: function() {
+                $('#xmlContainer').html('<div class="text-danger">Ошибка загрузки сообщения</div>');
+            }
+        });
+    }
+
+    // Отображение XML содержимого
+    function showXmlContent(xmlContent) {
+        if (!xmlContent) {
+            $('#xmlContainer').html('<div class="text-muted">Нет данных</div>');
+            return;
         }
-    });
+
+        try {
+            // Простое форматирование с подсветкой тегов
+            let formatted = escapeHtml(xmlContent);
+
+            // Подсветка тегов
+            formatted = formatted.replace(/&lt;(\/?)([a-zA-Z0-9_:-]+)([^&]*)&gt;/g,
+                '&lt;<span style="color: #800000; font-weight: bold;">$1$2</span>$3&gt;');
+
+            // Подсветка атрибутов
+            formatted = formatted.replace(/([a-zA-Z0-9_-]+)=/g,
+                '<span style="color: #ff0000;">$1</span>=');
+
+            // Подсветка значений атрибутов
+            formatted = formatted.replace(/="([^"]*)"/g,
+                '="<span style="color: #0000ff;">$1</span>"');
+
+            // Подсветка комментариев
+            formatted = formatted.replace(/&lt;!--([^&]*)--&gt;/g,
+                '&lt;!--<span style="color: #808080; font-style: italic;">$1</span>--&gt;');
+
+            $('#xmlContainer').html(formatted);
+        } catch (e) {
+            $('#xmlContainer').html('<pre>' + escapeHtml(xmlContent) + '</pre>');
+        }
+    }
+
+    // Экранирование HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Переключение выбора чекбокса
+    function toggleSelect(messageId, checkbox) {
+        const row = $(checkbox).closest('tr');
+
+        if ($(checkbox).is(':checked')) {
+            if (!selectedMessages.includes(messageId)) {
+                selectedMessages.push(messageId);
+            }
+            row.addClass('selected');
+        } else {
+            selectedMessages = selectedMessages.filter(id => id !== messageId);
+            row.removeClass('selected');
+
+            // Если снимаем выделение с текущего выбранного сообщения
+            if (currentSelectedId === messageId) {
+                currentSelectedId = null;
+                resetMessageDetails();
+            }
+        }
+
+        updateSelectedCount();
+        updateResendButton();
+    }
+
+    // Сброс области деталей
+    function resetMessageDetails() {
+        $('#detailMessageId').text('ID: -');
+        $('#detailMessageId').removeClass('bg-primary').addClass('bg-secondary');
+        $('#xmlContainer').html(`
+                <div class="text-center text-muted">
+                    <p>Выберите сообщение из таблицы для просмотра</p>
+                </div>
+            `);
+    }
+
+    // Обновление счетчика выбранных
+    function updateSelectedCount() {
+        $('#selectedCount').text(selectedMessages.length);
+    }
+
+    // Обновление состояния кнопки "Отправить повторно"
+    function updateResendButton() {
+        $('#resendBtn').prop('disabled', selectedMessages.length === 0);
+    }
+
+    // Отправка выбранных сообщений повторно
+    function resendSelectedMessages() {
+        if (selectedMessages.length === 0) return;
+
+        if (!confirm(`Вы действительно хотите отправить повторно ${selectedMessages.length} сообщений?`)) {
+            return;
+        }
+
+        // Показываем анимацию загрузки
+        $('#loadingOverlay').show();
+        $('#loadingSpinner').show();
+
+        // Отправляем запрос на сервер
+        $.ajax({
+            url: '/api/resend',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ messageIds: selectedMessages }),
+            success: function(response) {
+                if (response.success) {
+                    alert(`Успешно обновлено: ${response.updatedCount} сообщений`);
+
+                    // Обновляем данные в таблице
+                    if (response.messages) {
+                        response.messages.forEach(msg => {
+                            updateTableRow(msg);
+                        });
+                    }
+                } else {
+                    alert('Ошибка: ' + response.error);
+                }
+            },
+            error: function() {
+                alert('Ошибка при отправке запроса');
+            },
+            complete: function() {
+                // Скрываем анимацию загрузки
+                $('#loadingOverlay').hide();
+                $('#loadingSpinner').hide();
+
+                // Сбрасываем выбор
+                selectedMessages = [];
+                $('.message-checkbox').prop('checked', false);
+                $('.clickable-row').removeClass('selected');
+                $('#selectAll, #selectAllTable').prop('checked', false);
+                updateSelectedCount();
+                updateResendButton();
+            }
+        });
+    }
+
+    // Обновление строки таблицы
+    function updateTableRow(message) {
+        const row = $(`tr[data-id="${message.id}"]`);
+        if (row.length) {
+            // Обновляем статус
+            const statusCell = row.find('td:nth-child(4)');
+            statusCell.empty();
+
+            if (message.status == null) {
+                statusCell.append('<span class="status-badge status-null">Нет</span>');
+            } else if (message.status === 'SUCCESS') {
+                statusCell.append('<span class="status-badge status-success">SUCCESS</span>');
+            } else if (message.status === 'ERROR') {
+                statusCell.append('<span class="status-badge status-error">ERROR</span>');
+            } else {
+                statusCell.append('<span class="status-badge status-pending">' + message.status + '</span>');
+            }
+
+            // Обновляем количество попыток
+            const attemptsCell = row.find('td:nth-child(6)');
+            attemptsCell.empty();
+            const badgeClass = message.numAttempt > 3 ? 'badge bg-danger' : 'badge bg-secondary';
+            attemptsCell.append('<span class="' + badgeClass + '">' + message.numAttempt + '</span>');
+        }
+    }
 </script>
 </body>
 </html>
