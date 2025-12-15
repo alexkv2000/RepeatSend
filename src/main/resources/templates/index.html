@@ -193,17 +193,33 @@
             overflow-y: auto;
         }
 
-        .message-table thead th {
-            position: sticky;
-            top: 0;
-            background: white;
-            z-index: 10;
-            border-bottom: 2px solid #dee2e6;
+        .message-table tbody {
+            display: block;
+            max-height: calc(19 * 41px); /* 23 строки × высота строки */
+            overflow-y: auto;
+        }
+
+        .message-table thead,
+        .message-table tbody tr {
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
+            flex: 1;
+            table-layout: fixed;
+        }
+
+        .message-table tbody tr {
+            height: 40px;
+        }
+
+        /* Фиксируем высоту заголовка */
+        .message-table thead {
+            height: 41px;
         }
 
         /* Стиль для UUID (усеченный текст) */
         .uuid-cell {
-            max-width: 120px;
+            max-width: 360px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -281,6 +297,7 @@
         .date-suggestion-item:hover {
             background-color: #f8f9fa;
         }
+
         .details-title {
             transition: color 0.2s;
         }
@@ -395,7 +412,7 @@
 
             <!-- Левая колонка: таблица -->
             <div class="table-container">
-                <table class="message-table table table-hover">
+                <table class="message-table">
                     <thead>
                     <tr>
                         <th style="width: 40px;">
@@ -403,7 +420,7 @@
                         </th>
                         <th style="width: 60px;">ID</th>
                         <th style="width: 260px;">UUID</th>
-                        <th>Тип</th>
+                        <th style="width: 120px;">Тип</th>
                         <th>Топик Kafka</th>
                         <th>Статус</th>
                         <th>Дата создания</th>
@@ -416,14 +433,14 @@
                         class="clickable-row"
                         th:data-id="${message.id}"
                         onclick="selectRow(this)">
-                        <td>
+                        <td style="width: 40px;">
                             <input type="checkbox" class="message-checkbox" onclick="toggleSelect(this, event)">
                         </td>
-                        <td th:text="${message.id}"></td>
-                        <td class="uuid-cell" title="${message.UUID}">
+                        <td style="width: 60px;" th:text="${message.id}"></td>
+                        <td style="width: 260px;" class="uuid-cell" title="${message.UUID}">
                             <small th:text="${message.UUID} ? ${#strings.abbreviate(message.UUID, 37)} : 'Нет'"></small>
                         </td>
-                        <td>
+                        <td style="width: 120px;">
                             <!-- Отображение типа сообщения с цветовой индикацией -->
                             <span th:if="${message.typeMes == null or message.typeMes == ''}"
                                   class="type-badge type-default">-</span>
@@ -436,10 +453,10 @@
                             <span th:if="${message.typeMes != null and message.typeMes != 'EMAIL' and message.typeMes != 'SMS' and message.typeMes != 'PUSH'}"
                                   class="type-badge type-default" th:text="${message.typeMes}"></span>
                         </td>
-                        <td>
+                        <td style="width: 120px;">
                             <small th:text="${message.kafkaTopic}"></small>
                         </td>
-                        <td>
+                        <td style="width: 120px;">
                             <!-- Безопасное отображение статуса -->
                             <span th:if="${message.status == null}" class="status-badge status-null">Нет</span>
                             <span th:if="${message.status != null and message.status == 'SUCCESS'}"
@@ -449,15 +466,15 @@
                             <span th:if="${message.status != null and message.status != 'SUCCESS' and message.status != 'ERROR'}"
                                   class="status-badge status-pending" th:text="${message.status}"></span>
                         </td>
-                        <td>
+                        <td style="width: 120px;">
                             <small th:text="${#temporals.format(message.dateCreate, 'dd.MM.yyyy HH:mm')}"></small>
                         </td>
-                        <td>
+                        <td style="width: 120px;">
                             <small th:if="${message.dateEnd != null}"
                                    th:text="${#temporals.format(message.dateEnd, 'dd.MM.yyyy HH:mm')}"></small>
                             <small th:if="${message.dateEnd == null}" class="text-muted">-</small>
                         </td>
-                        <td>
+                        <td style="width: 40px;">
                                     <span th:text="${message.numAttempt}"
                                           th:class="${message.numAttempt != null and message.numAttempt > 3} ? 'badge bg-danger' : 'badge bg-secondary'">
                                     </span>
@@ -614,9 +631,9 @@
         initDateField();
         restoreMessageInfoState();
         // Обработчик для "Выбрать все"
-        $('#selectAll, #selectAllTable').change(function() {
+        $('#selectAll, #selectAllTable').change(function () {
             const isChecked = $(this).is(':checked');
-            $('.message-checkbox').prop('checked', isChecked).each(function() {
+            $('.message-checkbox').prop('checked', isChecked).each(function () {
                 const messageId = $(this).closest('tr').data('id');
                 updateSelection(messageId, isChecked);
             });
@@ -626,30 +643,31 @@
         // Обработчик для кнопки "Отправить повторно"
         $('#resendBtn').click(resendSelectedMessages);
     });
+
     // Инициализация поля даты
     function initDateField() {
         const dateInput = $('#dateInput');
         const suggestions = $('#dateSuggestions');
 
         // Показываем предложения при фокусе
-        dateInput.on('focus', function() {
+        dateInput.on('focus', function () {
             if (suggestions.children().length > 0) {
                 suggestions.show();
             }
         });
 
         // Скрываем предложения при клике вне поля
-        $(document).on('click', function(e) {
+        $(document).on('click', function (e) {
             if (!$(e.target).closest('.date-autocomplete').length) {
                 suggestions.hide();
             }
         });
 
         // Фильтрация предложений при вводе
-        dateInput.on('input', function() {
+        dateInput.on('input', function () {
             const value = $(this).val().toLowerCase();
             if (value) {
-                suggestions.children().each(function() {
+                suggestions.children().each(function () {
                     const dateText = $(this).text().toLowerCase();
                     const dateValue = $(this).data('date').toLowerCase();
                     const isVisible = dateText.includes(value) || dateValue.includes(value);
@@ -662,6 +680,7 @@
             }
         });
     }
+
     // Выбор строки таблицы
     function selectRow(rowElement) {
         const messageId = $(rowElement).data('id');
@@ -1238,6 +1257,7 @@
         if (text.length <= maxLength) return text;
         return text.substring(0, maxLength - 3) + '...';
     }
+
     // Функция для переключения видимости блока с информацией о сообщении
     function toggleMessageInfo() {
         const messageInfo = document.getElementById('messageInfo');
