@@ -20,7 +20,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     @Modifying
     @Transactional
-    @Query("UPDATE Message m SET m.dateEnd = null, m.server = '' " +
+    @Query("UPDATE Message m SET  m.status = null, m.dateEnd = null, m.server = '', m.numAttempt = 0" +
             "WHERE m.id IN :ids")
     int resetMessages(@Param("ids") List<Long> ids);
 
