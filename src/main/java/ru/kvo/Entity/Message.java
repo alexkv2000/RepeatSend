@@ -36,4 +36,7 @@ public class Message {
 
     @Column(name = "typemes")
     private String typeMes;
+
+    @Column(name = "UUID")
+    private String UUID;
 }
