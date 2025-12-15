@@ -13,4 +13,5 @@ public class MessageResponse {
     private String server;
     private Integer numAttempt;
     private String typeMes;
+    private String UUID;
 }

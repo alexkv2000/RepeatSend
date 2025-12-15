@@ -1,5 +1,6 @@
 package ru.kvo.Service;
 
+import ru.kvo.Dto.SearchRequest;
 import ru.kvo.Entity.Message;
 import ru.kvo.Repository.MessageRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -8,10 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,226 +22,314 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public List<Message> searchByEmail(String email) {
-        log.info("Поиск сообщений по email: {}", email);
+    public List<Message> searchMessages(SearchRequest request) {
+        String email = request.getEmail();
+        LocalDate dateCreate = request.getDateCreate();
 
-        if (email == null || email.trim().isEmpty()) {
-            log.warn("Email для поиска не указан");
-            return List.of();
+        log.info("Поиск сообщений: email={}, date={}", email, dateCreate);
+
+        // Валидация
+        if ((email == null || email.trim().isEmpty()) && dateCreate == null) {
+            log.warn("Ни одно поле поиска не заполнено");
+            return Collections.emptyList();
         }
 
-        String cleanEmail = email.trim();
-        List<Message> results = messageRepository.findByEmailInXml(cleanEmail);
-        log.info("Найдено сообщений: {}", results.size());
+        // Очищаем email
+        String cleanEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
 
-        return results;
+        // Выполняем поиск
+        if (cleanEmail != null && dateCreate != null) {
+            return messageRepository.findByEmailAndDate(cleanEmail, dateCreate);
+        } else if (cleanEmail != null) {
+            return messageRepository.findByEmail(cleanEmail);
+        } else {
+            return messageRepository.findByDate(dateCreate);
+        }
     }
 
     public Message getMessageById(Long id) {
-        if (id == null) {
-            return null;
-        }
-
-        Optional<Message> message = messageRepository.findById(id);
-        return message.orElse(null);
+        if (id == null) return null;
+        return messageRepository.findById(id).orElse(null);
     }
 
     public int resendMessages(List<Long> messageIds) {
-        if (messageIds == null || messageIds.isEmpty()) {
-            return 0;
-        }
+        if (messageIds == null || messageIds.isEmpty()) return 0;
 
-        log.info("Сброс статуса для {} сообщений: {}", messageIds.size(), messageIds);
-
-        try {
-            int updated = messageRepository.resetMessages(messageIds);
-            log.info("Обновлено {} записей", updated);
-            return updated;
-        } catch (Exception e) {
-            log.error("Ошибка при сбросе статуса: {}", e.getMessage(), e);
-            throw new RuntimeException("Не удалось обновить сообщения", e);
-        }
+        log.info("Сброс статуса для {} сообщений", messageIds.size());
+        return messageRepository.resetMessages(messageIds);
     }
 
     public List<Message> getMessagesByIds(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return List.of();
-        }
-
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
         return messageRepository.findByIds(ids);
     }
 
     /**
-     * Извлекает содержимое поля Body из JSON сообщения
+     * Универсальный метод извлечения Body из сообщения
      */
-    public String extractBodyFromJsonMessage(String jsonMessage) {
-        if (jsonMessage == null || jsonMessage.isEmpty()) {
+    public String extractBodyFromMessage(String messageContent) {
+        if (messageContent == null || messageContent.isEmpty()) {
             return "";
         }
 
+        log.debug("Извлечение Body из сообщения, длина: {}", messageContent.length());
+
         try {
-            log.debug("Обработка JSON сообщения, длина: {}", jsonMessage.length());
-
-            // Проверяем, является ли строка JSON
-            String trimmedMessage = jsonMessage.trim();
-
-            // Если сообщение начинается с {, пробуем парсить как JSON
-            if (trimmedMessage.startsWith("{")) {
-                try {
-                    JsonNode jsonNode = objectMapper.readTree(trimmedMessage);
-
-                    // Ищем поле Body (регистронезависимо)
-                    JsonNode bodyNode = findBodyField(jsonNode);
-
-                    if (bodyNode != null && !bodyNode.isNull()) {
-                        String bodyContent = bodyNode.asText();
-                        log.debug("Найдено содержимое Body, длина: {}", bodyContent.length());
-                        return bodyContent;
-                    } else {
-                        log.debug("Поле Body не найдено в JSON");
-                    }
-                } catch (Exception jsonException) {
-                    log.debug("Не удалось распарсить как JSON, пробуем другие методы");
+            // 1. Пробуем извлечь из JSON (если начинается с {)
+            String trimmed = messageContent.trim();
+            if (trimmed.startsWith("{")) {
+                String jsonBody = extractBodyFromJson(trimmed);
+                if (!jsonBody.isEmpty() && !jsonBody.contains("alert-warning")) {
+                    return jsonBody;
                 }
             }
 
-            // Если не JSON или Body не найден, пробуем найти паттерн "Body":"..."
-            return extractBodyWithPatterns(jsonMessage);
+            // 2. Пробуем найти JSON поле "Body" даже если не начинается с {
+            String jsonPatternBody = extractBodyWithJsonPattern(messageContent);
+            if (!jsonPatternBody.isEmpty() && !jsonPatternBody.contains("alert-warning")) {
+                return jsonPatternBody;
+            }
+
+            // 3. Пробуем найти XML тег <Body>
+            String xmlBody = extractBodyFromXml(messageContent);
+            if (!xmlBody.isEmpty() && !xmlBody.contains("alert-warning")) {
+                return xmlBody;
+            }
+
+            // 4. Если ничего не нашли, показываем все сообщение
+            log.warn("Body не найден ни в JSON, ни в XML");
+            return "<div class='alert alert-warning'>Не удалось извлечь Body. Показано полное сообщение:</div>" +
+                    "<pre>" + escapeHtml(messageContent.substring(0, Math.min(1000, messageContent.length()))) + "</pre>";
 
         } catch (Exception e) {
-            log.error("Ошибка при извлечении Body из сообщения: {}", e.getMessage(), e);
-            return "<div class='alert alert-danger'>Ошибка при обработке сообщения: " +
-                    e.getMessage() + "</div>";
+            log.error("Ошибка при извлечении Body: {}", e.getMessage(), e);
+            return "<div class='alert alert-danger'>Ошибка обработки: " + e.getMessage() + "</div>";
         }
     }
 
     /**
-     * Ищет поле Body в JSON (регистронезависимо)
+     * Извлечение Body из JSON через парсинг
      */
-    private JsonNode findBodyField(JsonNode node) {
-        // Проверяем основные варианты написания
-        String[] possibleNames = {"Body", "body", "BODY", "HtmlBody", "htmlBody", "HTML"};
+    private String extractBodyFromJson(String jsonContent) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(jsonContent);
 
-        for (String fieldName : possibleNames) {
-            if (node.has(fieldName)) {
-                return node.get(fieldName);
+            // Ищем поле Body в разных вариантах написания
+            String[] possibleNames = {"Body", "body", "BODY", "HtmlBody", "htmlBody", "HTML"};
+
+            for (String fieldName : possibleNames) {
+                if (jsonNode.has(fieldName)) {
+                    String body = jsonNode.get(fieldName).asText();
+                    log.debug("Найдено поле '{}' в JSON, длина: {}", fieldName, body.length());
+                    return unescapeJsonString(body);
+                }
+            }
+
+            // Пробуем найти любое поле содержащее HTML
+            for (JsonNode node : jsonNode) {
+                if (node.isTextual()) {
+                    String value = node.asText();
+                    if (value.contains("<html") || value.contains("<HTML")) {
+                        log.debug("Найдено HTML в поле JSON");
+                        return unescapeJsonString(value);
+                    }
+                }
+            }
+
+            return "";
+
+        } catch (Exception e) {
+            log.debug("Не удалось распарсить как JSON: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Извлечение Body с помощью регулярных выражений для JSON
+     */
+    private String extractBodyWithJsonPattern(String text) {
+        // Паттерны для поиска JSON поля Body
+        java.util.regex.Pattern[] patterns = {
+                // "Body":"content"
+                java.util.regex.Pattern.compile("\"Body\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", java.util.regex.Pattern.DOTALL),
+                // "body":"content"
+                java.util.regex.Pattern.compile("\"body\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", java.util.regex.Pattern.DOTALL),
+                // 'Body':'content'
+                java.util.regex.Pattern.compile("'Body'\\s*:\\s*'(.*?)(?<!\\\\)'", java.util.regex.Pattern.DOTALL),
+                // Без пробелов: "Body":"content"
+                java.util.regex.Pattern.compile("\"Body\":\"(.*?)(?<!\\\\)\"", java.util.regex.Pattern.DOTALL)
+        };
+
+        for (java.util.regex.Pattern pattern : patterns) {
+            java.util.regex.Matcher matcher = pattern.matcher(text);
+            if (matcher.find()) {
+                try {
+                    String content = matcher.group(1);
+                    log.debug("Найдено Body паттерном {}, длина: {}", pattern.pattern(), content.length());
+                    return unescapeJsonString(content);
+                } catch (Exception e) {
+                    log.debug("Ошибка обработки паттерна {}: {}", pattern.pattern(), e.getMessage());
+                }
             }
         }
 
-        // Если не нашли, ищем среди всех полей
-        return node.findValue("Body");
+        return "";
     }
-    public String extractBodyFromMessage(String xmlMessage) {
-        if (xmlMessage == null || xmlMessage.isEmpty()) {
-            return "";
-        }
 
+    /**
+     * Извлечение Body из XML
+     */
+    private String extractBodyFromXml(String xmlContent) {
         try {
-            // Паттерн для поиска тега Body (учитываем возможные атрибуты)
-            Pattern pattern = Pattern.compile("<Body[^>]*>(.*?)</Body>", Pattern.DOTALL);
-            Matcher matcher = pattern.matcher(xmlMessage);
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<Body[^>]*>(.*?)</Body>", java.util.regex.Pattern.DOTALL);
+            java.util.regex.Matcher matcher = pattern.matcher(xmlContent);
 
             if (matcher.find()) {
                 String bodyContent = matcher.group(1);
-                log.debug("Найдено содержимое Body, длина: {}", bodyContent.length());
-
-                // Декодируем HTML entities если нужно
-                bodyContent = decodeHtmlEntities(bodyContent);
-
-                return bodyContent;
-            } else {
-                log.debug("Тег Body не найден в сообщении");
-                return "<div class='alert alert-warning'>Тег Body не найден в сообщении</div>";
+                log.debug("Найдено XML тег Body, длина: {}", bodyContent.length());
+                return decodeHtmlEntities(bodyContent);
             }
+
+            // Пробуем вариант в нижнем регистре
+            pattern = java.util.regex.Pattern.compile("<body[^>]*>(.*?)</body>", java.util.regex.Pattern.DOTALL);
+            matcher = pattern.matcher(xmlContent);
+
+            if (matcher.find()) {
+                String bodyContent = matcher.group(1);
+                log.debug("Найдено XML тег body (нижний регистр), длина: {}", bodyContent.length());
+                return decodeHtmlEntities(bodyContent);
+            }
+
+            return "";
+
         } catch (Exception e) {
-            log.error("Ошибка при извлечении Body из XML: {}", e.getMessage(), e);
-            return "<div class='alert alert-danger'>Ошибка при обработке сообщения: " +
-                    e.getMessage() + "</div>";
+            log.error("Ошибка при извлечении Body из XML: {}", e.getMessage());
+            return "";
         }
     }
+
+    /**
+     * Декодирование HTML entities
+     */
     private String decodeHtmlEntities(String text) {
         if (text == null) return "";
 
-        // Простая замена основных entities
         return text.replace("&lt;", "<")
                 .replace("&gt;", ">")
                 .replace("&amp;", "&")
                 .replace("&quot;", "\"")
                 .replace("&apos;", "'")
                 .replace("&#xA;", "\n")
-                .replace("&#xD;", "\r");
-    }
-    /**
-     * Извлекает Body с помощью регулярных выражений для разных форматов
-     */
-    private String extractBodyWithPatterns(String message) {
-        // Паттерны для поиска Body в разных форматах
-        String[] patterns = {
-                // JSON формат: "Body":"content"
-                "\"Body\"\\s*:\\s*\"(.*?)\"(?=[,}\\s])",
-                "\"body\"\\s*:\\s*\"(.*?)\"(?=[,}\\s])",
-                "'Body'\\s*:\\s*'(.*?)'(?=[,}\\s])",
-
-                // XML-like формат: <Body>content</Body>
-                "<Body[^>]*>(.*?)</Body>",
-                "<body[^>]*>(.*?)</body>",
-
-                // Без кавычек: Body:content
-                "\"Body\"\\s*:\\s*(.*?)(?=[,}\\s])"
-        };
-
-        for (String pattern : patterns) {
-            try {
-                java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern,
-                        java.util.regex.Pattern.DOTALL);
-                java.util.regex.Matcher m = p.matcher(message);
-
-                if (m.find()) {
-                    String content = m.group(1);
-
-                    // Убираем экранирование
-                    content = unescapeJsonString(content);
-
-                    log.debug("Найдено Body с паттерном {}, длина: {}", pattern, content.length());
-                    return content;
-                }
-            } catch (Exception e) {
-                log.debug("Ошибка при применении паттерна {}: {}", pattern, e.getMessage());
-            }
-        }
-
-        log.warn("Body не найден ни одним из паттернов");
-        return "<div class='alert alert-warning'>Тело сообщения не найдено в формате JSON/XML</div>";
+                .replace("&#xD;", "\r")
+                .replace("&#39;", "'")
+                .replace("&#34;", "\"");
     }
 
     /**
-     * Убирает экранирование из JSON строки
+     * Удаление экранирования из JSON строки
      */
     private String unescapeJsonString(String str) {
         if (str == null) return "";
 
-        return str.replace("\\\"", "\"")
-                .replace("\\'", "'")
-                .replace("\\\\", "\\")
-                .replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replace("\\t", "\t")
-                .replace("\\/", "/");
+        String result = str;
+
+        // Заменяем экранированные последовательности
+        result = result.replace("\\\\", "\\");
+        result = result.replace("\\\"", "\"");
+        result = result.replace("\\'", "'");
+        result = result.replace("\\n", "\n");
+        result = result.replace("\\r", "\r");
+        result = result.replace("\\t", "\t");
+        result = result.replace("\\b", "\b");
+        result = result.replace("\\f", "\f");
+        result = result.replace("\\/", "/");
+
+        // Заменяем Unicode escape с помощью Pattern и Matcher
+        Pattern unicodePattern = Pattern.compile("\\\\u([0-9a-fA-F]{4})");
+        Matcher matcher = unicodePattern.matcher(result);
+        StringBuffer sb = new StringBuffer();
+
+        while (matcher.find()) {
+            String hex = matcher.group(1);
+            char unicodeChar = (char) Integer.parseInt(hex, 16);
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(String.valueOf(unicodeChar)));
+        }
+        matcher.appendTail(sb);
+        result = sb.toString();
+
+        // Декодируем HTML entities после экранирования
+        result = decodeHtmlEntities(result);
+
+        return result;
     }
 
     /**
-     * Получает полную информацию о сообщении
+     * Экранирование HTML для безопасного отображения
      */
-    public Map<String, Object> getMessageWithBody(Long id) {
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    /**
+     * Получение полной информации о сообщении для API
+     */
+    public Map<String, Object> getMessageFullInfo(Long id) {
         Map<String, Object> result = new HashMap<>();
 
         Message message = getMessageById(id);
         if (message != null) {
             result.put("message", message);
-            result.put("bodyContent", extractBodyFromJsonMessage(message.getMessage()));
-            result.put("isJson", message.getMessage().trim().startsWith("{"));
+
+            // Извлекаем Body
+            String bodyContent = extractBodyFromMessage(message.getMessage());
+            result.put("bodyContent", bodyContent);
+
+            // Определяем формат
+            boolean isJson = message.getMessage() != null &&
+                    message.getMessage().trim().startsWith("{");
+            result.put("isJson", isJson);
+
+            // Если JSON, извлекаем дополнительные поля
+            if (isJson) {
+                try {
+                    JsonNode jsonNode = objectMapper.readTree(message.getMessage().trim());
+
+                    Map<String, String> fields = new HashMap<>();
+                    fields.put("To", jsonNode.has("To") ? jsonNode.get("To").asText() : "");
+                    fields.put("ToCC", jsonNode.has("ToCC") ? jsonNode.get("ToCC").asText() : "");
+                    fields.put("Caption", jsonNode.has("Caption") ? jsonNode.get("Caption").asText() : "");
+                    fields.put("typeMes", jsonNode.has("typeMes") ? jsonNode.get("typeMes").asText() : "");
+                    fields.put("uuid", jsonNode.has("uuid") ? jsonNode.get("uuid").asText() : "");
+
+                    result.put("fields", fields);
+                } catch (Exception e) {
+                    log.debug("Не удалось извлечь поля из JSON: {}", e.getMessage());
+                }
+            }
         }
 
         return result;
+    }
+
+    /**
+     * Получает список уникальных дат для автозаполнения
+     */
+    public List<LocalDate> getUniqueDates() {
+        List<Message> allMessages = messageRepository.findAll();
+        Set<LocalDate> uniqueDates = new TreeSet<>();
+
+        for (Message message : allMessages) {
+            if (message.getDateCreate() != null) {
+                uniqueDates.add(message.getDateCreate().toLocalDate());
+            }
+        }
+
+        return new ArrayList<>(uniqueDates);
     }
 }

@@ -3,12 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Поиск сообщений по email</title>
+    <title>Поиск сообщений</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { font-size: 14px; }
-        .container { max-width: 95%; }
+        body {
+            font-size: 14px;
+        }
+
+        .container-fluid {
+            max-width: 95%;
+        }
 
         /* Стили для анимации загрузки */
         .loading-overlay {
@@ -21,6 +26,7 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 9998;
         }
+
         .loading-spinner {
             position: fixed;
             top: 50%;
@@ -30,6 +36,7 @@
             text-align: center;
             color: white;
         }
+
         .spinner {
             width: 50px;
             height: 50px;
@@ -39,9 +46,14 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 10px;
         }
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* Основной контейнер с двумя колонками */
@@ -53,22 +65,23 @@
 
         /* Левая колонка с таблицей */
         .table-container {
-            width: 1400px; /* flex: 0 0 60%;*/
+            flex: 0 0 60%;
             background: white;
             border-radius: 8px;
             padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             max-height: 75vh;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
 
         /* Правая колонка с деталями сообщения */
         .message-details {
-            width: 900px; /*flex: 0 0 38%;*/
+            flex: 0 0 38%;
             background: white;
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             max-height: 75vh;
             display: flex;
             flex-direction: column;
@@ -81,8 +94,8 @@
             margin-bottom: 15px;
         }
 
-        /* Контейнер для XML */
-        .xml-container {
+        /* Контейнер для XML/HTML */
+        .html-container {
             flex: 1;
             overflow-y: auto;
             background: #f8f9fa;
@@ -92,8 +105,6 @@
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 12px;
             line-height: 1.4;
-            white-space: pre-wrap;
-            word-wrap: break-word;
         }
 
         /* Строки таблицы */
@@ -101,9 +112,11 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+
         .clickable-row:hover {
             background-color: #f0f8ff !important;
         }
+
         .clickable-row.selected {
             background-color: #e3f2fd !important;
             border-left: 3px solid #007bff;
@@ -116,95 +129,337 @@
             font-size: 11px;
             font-weight: 500;
         }
-        .status-success { background-color: #d4edda; color: #155724; }
-        .status-error { background-color: #f8d7da; color: #721c24; }
-        .status-pending { background-color: #fff3cd; color: #856404; }
-        .status-null { background-color: #e2e3e5; color: #383d41; }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-null {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+
+        /* Иконки */
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+
+        .icon-btn:hover {
+            color: #007bff;
+            background: #f8f9fa;
+        }
+
+        /* Кнопки управления */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        /* Счетчик выделенных */
+        .selected-counter {
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        /* Таблица */
+        .message-table {
+            width: 100%;
+            margin-bottom: 10px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .message-table thead th {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        /* Стиль для UUID (усеченный текст) */
+        .uuid-cell {
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Стиль для типа сообщения */
+        .type-badge {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .type-email {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .type-sms {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .type-push {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .type-default {
+            background-color: #f5f5f5;
+            color: #616161;
+        }
+
+        /* Стили для адресов */
+        .email-address {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 11px;
+            word-break: break-all;
+        }
+
+        .email-list {
+            max-height: 80px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 5px;
+            margin-top: 3px;
+        }
+
+        .date-autocomplete {
+            position: relative;
+        }
+
+        .date-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .date-suggestion-item {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .date-suggestion-item:hover {
+            background-color: #f8f9fa;
+        }
+        .details-title {
+            transition: color 0.2s;
+        }
+
+        .details-title:hover {
+            color: #007bff;
+        }
+
+        #detailsToggleIcon {
+            transition: transform 0.3s;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
-<div class="container mt-4">
-    <h1 class="mb-4">Поиск сообщений по email</h1>
-
+<div class="container-fluid mt-3">
     <!-- Форма поиска -->
-    <form th:action="@{/search}" method="post" class="mb-4">
-        <div class="row g-3 align-items-center">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="email" name="email" class="form-control"
-                           placeholder="Введите email для поиска"
-                           th:value="${searchEmail != null} ? ${searchEmail} : ''"
-                           required>
-                    <button type="submit" class="btn btn-primary">Поиск</button>
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-4">
+                <i class="fas fa-search me-2"></i>Поиск сообщений
+            </h5>
+            <form th:action="@{/search}" method="post" th:object="${searchRequest}" id="searchForm">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-envelope"></i>
+                            </span>
+                            <input type="email" th:field="*{email}" class="form-control"
+                                   placeholder="Email для поиска (user@example.com)"
+                                   id="emailInput">
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="date-autocomplete">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                                <input type="date" th:field="*{dateCreate}" class="form-control"
+                                       id="dateInput"
+                                       th:value="${searchRequest.dateCreate != null} ?
+                                               ${#temporals.format(searchRequest.dateCreate, 'yyyy-MM-dd')} : ''">
+                                <button type="button" class="btn btn-outline-secondary" onclick="clearDate()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <!-- Список уникальных дат для автозаполнения -->
+                            <div class="date-suggestions" id="dateSuggestions">
+                                <div th:each="date : ${uniqueDates}"
+                                     class="date-suggestion-item"
+                                     th:data-date="${#temporals.format(date, 'yyyy-MM-dd')}"
+                                     th:text="${#temporals.format(date, 'dd.MM.yyyy')}"
+                                     onclick="selectDate(this)"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-1"></i> Найти
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <button type="button" class="btn btn-warning" id="resendBtn" disabled>
-                    Отправить повторно (<span id="selectedCount">0</span>)
-                </button>
-            </div>
+                <div class="form-text mt-2">
+                    Заполните хотя бы одно поле
+                </div>
+
+                <!-- Сообщение об ошибке -->
+                <div th:if="${error != null}" class="alert alert-danger mt-3">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span th:text="${error}"></span>
+                </div>
+
+                <!-- Информация о текущем поиске -->
+                <div th:if="${searchResultCount != null}" class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span th:text="'Найдено сообщений: ' + ${searchResultCount}"></span>
+                    <span th:if="${searchRequest.email != null and !searchRequest.email.isEmpty()}"
+                          th:text="' | Email: ' + ${searchRequest.email}" class="ms-2"></span>
+                    <span th:if="${searchRequest.dateCreate != null}"
+                          th:text="' | Дата: ' + ${#temporals.format(searchRequest.dateCreate, 'dd.MM.yyyy')}"
+                          class="ms-2"></span>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
+
 
     <!-- Результаты поиска -->
     <div th:if="${messages != null and !messages.empty}">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5>Найдено сообщений: <span th:text="${messages.size()}" class="badge bg-primary"></span></h5>
-            <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="selectAll">
-                <label class="form-check-label" for="selectAll">Выбрать все</label>
+            <h5>
+                <i class="fas fa-list me-2"></i>
+                Найдено сообщений: <span th:text="${messages.size()}" class="badge bg-primary"></span>
+            </h5>
+            <div>
+                <div class="form-check form-check-inline">
+                    <input type="checkbox" class="form-check-input" id="selectAll">
+                    <label class="form-check-label" for="selectAll">Выбрать все</label>
+                </div>
+                <button type="button" class="btn btn-warning" id="resendBtn" disabled>
+                    <i class="fas fa-redo-alt me-1"></i>
+                    Отправить повторно
+                    <span id="selectedCount" class="selected-counter">0</span>
+                </button>
             </div>
         </div>
 
+        <!-- Основной контейнер с двумя колонками -->
         <div class="main-container">
+
             <!-- Левая колонка: таблица -->
             <div class="table-container">
-                <table class="table table-hover">
+                <table class="message-table table table-hover">
                     <thead>
                     <tr>
                         <th style="width: 40px;">
                             <input type="checkbox" id="selectAllTable">
                         </th>
-                        <th style="width: 80px;">ID</th>
-                        <th style="width: 150px;">UUID</th>
-                        <th style="width: 150px;">Топик Kafka</th>
-                        <th style="width: 100px;">Статус</th>
-                        <th style="width: 150px;">Дата создания</th>
-                        <th style="width: 150px;">Дата отправки</th>
-                        <th style="width: 80px;">Тип</th>
-                        <th style="width: 80px;">Сервер</th>
+                        <th style="width: 60px;">ID</th>
+                        <th style="width: 260px;">UUID</th>
+                        <th>Тип</th>
+                        <th>Топик Kafka</th>
+                        <th>Статус</th>
+                        <th>Дата создания</th>
+                        <th>Дата окончания</th>
                         <th style="width: 80px;">Попытки</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr th:each="message : ${messages}"
                         class="clickable-row"
-                        th:attr="data-id=${message.id}"
-                        th:onclick="'selectMessage(' + ${message.id} + ', this)'">
+                        th:data-id="${message.id}"
+                        onclick="selectRow(this)">
                         <td>
-                            <input type="checkbox" class="message-checkbox"
-                                   th:attr="onclick='event.stopPropagation(); toggleSelect(' + ${message.id} + ', this)'">
+                            <input type="checkbox" class="message-checkbox" onclick="toggleSelect(this, event)">
                         </td>
                         <td th:text="${message.id}"></td>
-                        <td th:text="${message.UUID}"></td>
-                        <td th:text="${message.kafkaTopic}"></td>
+                        <td class="uuid-cell" title="${message.UUID}">
+                            <small th:text="${message.UUID} ? ${#strings.abbreviate(message.UUID, 37)} : 'Нет'"></small>
+                        </td>
                         <td>
-                            <!-- Простое отображение статуса -->
+                            <!-- Отображение типа сообщения с цветовой индикацией -->
+                            <span th:if="${message.typeMes == null or message.typeMes == ''}"
+                                  class="type-badge type-default">-</span>
+                            <span th:if="${message.typeMes != null and message.typeMes == 'EMAIL'}"
+                                  class="type-badge type-email" th:text="${message.typeMes}"></span>
+                            <span th:if="${message.typeMes != null and message.typeMes == 'SMS'}"
+                                  class="type-badge type-sms" th:text="${message.typeMes}"></span>
+                            <span th:if="${message.typeMes != null and message.typeMes == 'PUSH'}"
+                                  class="type-badge type-push" th:text="${message.typeMes}"></span>
+                            <span th:if="${message.typeMes != null and message.typeMes != 'EMAIL' and message.typeMes != 'SMS' and message.typeMes != 'PUSH'}"
+                                  class="type-badge type-default" th:text="${message.typeMes}"></span>
+                        </td>
+                        <td>
+                            <small th:text="${message.kafkaTopic}"></small>
+                        </td>
+                        <td>
+                            <!-- Безопасное отображение статуса -->
                             <span th:if="${message.status == null}" class="status-badge status-null">Нет</span>
                             <span th:if="${message.status != null and message.status == 'SUCCESS'}"
                                   class="status-badge status-success" th:text="${message.status}"></span>
                             <span th:if="${message.status != null and message.status == 'ERROR'}"
-                                  class="status-badge status-error" th:text="${message.status}"></span>
+                                  class="status-badge status-error" th-text="${message.status}"></span>
                             <span th:if="${message.status != null and message.status != 'SUCCESS' and message.status != 'ERROR'}"
                                   class="status-badge status-pending" th:text="${message.status}"></span>
                         </td>
-                        <td th:text="${#temporals.format(message.dateCreate, 'dd.MM.yyyy HH:mm')}"></td>
-                        <td th:text="${#temporals.format(message.dateEnd, 'dd.MM.yyyy HH:mm')}"></td>
-                        <td th:text="${message.typeMes}"></td>
-                        <td th:text="${message.server}"></td>
+                        <td>
+                            <small th:text="${#temporals.format(message.dateCreate, 'dd.MM.yyyy HH:mm')}"></small>
+                        </td>
+                        <td>
+                            <small th:if="${message.dateEnd != null}"
+                                   th:text="${#temporals.format(message.dateEnd, 'dd.MM.yyyy HH:mm')}"></small>
+                            <small th:if="${message.dateEnd == null}" class="text-muted">-</small>
+                        </td>
                         <td>
                                     <span th:text="${message.numAttempt}"
-                                          th:class="${message.numAttempt > 3} ? 'badge bg-danger' : 'badge bg-secondary'">
+                                          th:class="${message.numAttempt != null and message.numAttempt > 3} ? 'badge bg-danger' : 'badge bg-secondary'">
                                     </span>
                         </td>
                     </tr>
@@ -215,30 +470,124 @@
             <!-- Правая колонка: детали сообщения -->
             <div class="message-details">
                 <div class="details-header">
-                    <h6 class="mb-0">
-                        Содержимое сообщения
-                    </h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">
+                            <i class="fas fa-file-code me-2"></i>
+                            <span class="details-title" style="cursor: pointer;" onclick="toggleMessageInfo()">
+                    Детали сообщения
+                    <i id="detailsToggleIcon" class="fas fa-chevron-down ms-1"></i>
+                </span>
+                        </h6>
+                        <div class="d-flex align-items-center">
+                            <span id="detailMessageId" class="badge bg-secondary me-2">ID: -</span>
+                            <button class="icon-btn" onclick="copyContent()" title="Копировать содержимое">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="icon-btn" onclick="copyDetails()" title="Копировать детали">
+                                <i class="fas fa-clipboard-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-muted small">
+                        Нажмите на заголовок для показа/скрытия информации
+                    </div>
                 </div>
-                <div class="mb-2">
-                    <span id="detailMessageId" class="badge bg-secondary">ID: -</span>
+
+                <!-- Блок с основной информацией -->
+                <div id="messageInfo" class="mb-3 p-3 border rounded" style="display: none;">
+                    <!-- Блок 1: Основная информация -->
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">UUID:</small>
+                            <div id="infoUUID" class="email-address small"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Тип:</small>
+                            <div id="infoType"></div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 2: Даты -->
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Дата создания:</small>
+                            <div id="infoDateCreate" class="small"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Дата окончания:</small>
+                            <div id="infoDateEnd" class="small"></div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 3: Статус и попытки -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Статус:</small>
+                            <div id="infoStatus"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Попыток:</small>
+                            <div id="infoAttempts"></div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 4: Адресаты -->
+                    <div class="row mb-2">
+                        <div class="col-md-12">
+                            <small class="text-muted d-block">Тема (Caption):</small>
+                            <div id="infoCaption" class="fw-semibold small"></div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">To (Кому):</small>
+                            <div id="infoTo" class="email-list small"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">ToCC (Копия):</small>
+                            <div id="infoToCC" class="email-list small"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">BCC (Скрытая копия):</small>
+                            <div id="infoBCC" class="email-list small"></div>
+                        </div>
+                    </div>
                 </div>
-                <div id="xmlContainer" class="xml-container">
-                    <div class="text-center text-muted">
+
+                <!-- Контейнер для содержимого -->
+                <div id="htmlContainer" class="html-container">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-mouse-pointer fa-2x mb-2"></i>
                         <p>Выберите сообщение из таблицы для просмотра</p>
                     </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-outline-primary" onclick="toggleView()">
+                        <i class="fas fa-exchange-alt me-1"></i> Переключить вид
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="searchInContent()">
+                        <i class="fas fa-search me-1"></i> Поиск в тексте
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="highlightEmail()">
+                        <i class="fas fa-highlighter me-1"></i> Подсветить email
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Если нет результатов -->
+    <!-- Сообщение если нет результатов -->
     <div th:if="${messages != null and messages.empty}" class="alert alert-info">
-        Сообщений с указанным email не найдено.
+        <i class="fas fa-info-circle me-2"></i>
+        Сообщений не найдено. Измените параметры поиска.
     </div>
 
-    <!-- При первом входе -->
+    <!-- Сообщение при первом входе -->
     <div th:unless="${messages != null}" class="alert alert-secondary">
-        Введите email для поиска сообщений
+        <i class="fas fa-info-circle me-2"></i>
+        Введите email и/или выберите дату для поиска сообщений
     </div>
 </div>
 
@@ -249,289 +598,356 @@
     <div class="mt-2">Обработка...</div>
 </div>
 
+<!-- JavaScript -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
 <script>
     // Глобальные переменные
     let selectedMessages = [];
     let currentSelectedId = null;
-    let allMessages = {};
+    let currentViewMode = 'preview'; // 'preview' или 'source'
+    let currentMessageData = {}; // Храним все данные текущего сообщения
 
-    // Инициализация данных сообщений при загрузке страницы
-    $(document).ready(function() {
-        console.log('Страница загружена, инициализируем данные...');
+    $(document).ready(function () {
+        console.log('Страница загружена');
 
+        initDateField();
+        restoreMessageInfoState();
         // Обработчик для "Выбрать все"
         $('#selectAll, #selectAllTable').change(function() {
             const isChecked = $(this).is(':checked');
-            $('.message-checkbox').prop('checked', isChecked).trigger('change');
+            $('.message-checkbox').prop('checked', isChecked).each(function() {
+                const messageId = $(this).closest('tr').data('id');
+                updateSelection(messageId, isChecked);
+            });
+            updateUI();
         });
 
         // Обработчик для кнопки "Отправить повторно"
-        $('#resendBtn').click(function() {
-            resendSelectedMessages();
-        });
-
-        // Инициализация данных сообщений из HTML
-        initializeMessages();
+        $('#resendBtn').click(resendSelectedMessages);
     });
+    // Инициализация поля даты
+    function initDateField() {
+        const dateInput = $('#dateInput');
+        const suggestions = $('#dateSuggestions');
 
-    // Инициализация данных из таблицы
-    function initializeMessages() {
-        console.log('Инициализация данных сообщений...');
-
-        // Собираем данные из таблицы
-        $('.clickable-row').each(function() {
-            const row = $(this);
-            const messageId = row.data('id');
-
-            // Если ID есть в data-атрибуте
-            if (messageId) {
-                allMessages[messageId] = {
-                    id: messageId,
-                    message: extractMessageFromRow(row)
-                };
+        // Показываем предложения при фокусе
+        dateInput.on('focus', function() {
+            if (suggestions.children().length > 0) {
+                suggestions.show();
             }
         });
 
-        console.log('Загружено сообщений:', Object.keys(allMessages).length);
+        // Скрываем предложения при клике вне поля
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.date-autocomplete').length) {
+                suggestions.hide();
+            }
+        });
+
+        // Фильтрация предложений при вводе
+        dateInput.on('input', function() {
+            const value = $(this).val().toLowerCase();
+            if (value) {
+                suggestions.children().each(function() {
+                    const dateText = $(this).text().toLowerCase();
+                    const dateValue = $(this).data('date').toLowerCase();
+                    const isVisible = dateText.includes(value) || dateValue.includes(value);
+                    $(this).toggle(isVisible);
+                });
+                suggestions.show();
+            } else {
+                suggestions.children().show();
+                suggestions.show();
+            }
+        });
     }
-
-    // Извлечение сообщения из строки таблицы
-    function extractMessageFromRow(row) {
-        // Поскольку сообщение не видно в таблице, нам нужно получить его из данных
-        // В реальном приложении нужно сделать AJAX запрос для получения полного сообщения
-        // Для демонстрации вернем заглушку
-        return '<XML>Сообщение ID: ' + row.data('id') + '</XML>';
-    }
-
-    // Выбор сообщения по клику на строку
-    function selectMessage(messageId, rowElement) {
-        console.log('Выбрано сообщение ID:', messageId);
-
-        currentSelectedId = messageId;
+    // Выбор строки таблицы
+    function selectRow(rowElement) {
+        const messageId = $(rowElement).data('id');
+        if (!messageId) return;
 
         // Снимаем выделение со всех строк и добавляем к текущей
         $('.clickable-row').removeClass('selected');
         $(rowElement).addClass('selected');
 
-        // Показываем содержимое сообщения
-        displayMessageDetails(messageId);
+        currentSelectedId = messageId;
+        loadMessageDetails(messageId);
     }
 
-    // Отображение деталей сообщения (обновленная версия)
-    function displayMessageDetails(messageId) {
-        console.log('Отображение деталей сообщения ID:', messageId);
+    // Переключение выбора чекбокса
+    function toggleSelect(checkbox, event) {
+        if (event) event.stopPropagation();
+
+        const row = $(checkbox).closest('tr');
+        const messageId = row.data('id');
+        const isChecked = $(checkbox).is(':checked');
+
+        updateSelection(messageId, isChecked);
+        updateUI();
+    }
+
+    // Обновление выбора
+    function updateSelection(messageId, isSelected) {
+        if (isSelected) {
+            if (!selectedMessages.includes(messageId)) {
+                selectedMessages.push(messageId);
+            }
+        } else {
+            selectedMessages = selectedMessages.filter(id => id !== messageId);
+        }
+    }
+
+    // Загрузка деталей сообщения
+    function loadMessageDetails(messageId) {
+        console.log('Загрузка сообщения ID:', messageId);
 
         // Обновляем заголовок
         $('#detailMessageId').text('ID: ' + messageId);
-        $('#detailMessageId').removeClass('bg-secondary').addClass('bg-primary');
+        $('#detailMessageId').removeClass('bg-secondary bg-primary').addClass('bg-primary');
 
         // Показываем загрузку
-        $('#xmlContainer').html(`
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Загрузка...</span>
+        $('#messageInfo').hide();
+        $('#htmlContainer').html(`
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2 text-muted">Загрузка содержимого...</p>
             </div>
-            <p class="mt-2 text-muted">Загрузка содержимого...</p>
-        </div>
-    `);
+        `);
 
-        // Загружаем Body с сервера
-        loadMessageFromServer(messageId);
-    }
-
-    // Загрузка полного сообщения с сервера
-    function loadMessageFromServer(messageId) {
-        // Показываем индикатор загрузки
-        $('#xmlContainer').html(`
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Загрузка...</span>
-            </div>
-            <p class="mt-2 text-muted">Загрузка HTML содержимого...</p>
-        </div>
-    `);
-
-        // Загружаем полное сообщение
+        // Загружаем с сервера
         $.ajax({
             url: '/api/message/' + messageId + '/full',
             type: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    // Обновляем заголовок
-                    $('#detailMessageId').text('ID: ' + messageId);
-                    $('#detailMessageId').removeClass('bg-secondary').addClass('bg-primary');
+            success: function (response) {
+                if (response.success && response.message) {
+                    // Сохраняем все данные сообщения
+                    currentMessageData = {
+                        message: response.message,
+                        fields: response.fields || {}
+                    };
 
-                    // Отображаем Body как HTML
-                    showBodyContent(response.bodyContent, response.fields);
+                    updateMessageInfo(response.message, response.fields);
+
+                    // Восстанавливаем состояние видимости
+                    setTimeout(restoreMessageInfoState, 0);
+
+                    if (response.bodyContent) {
+                        displayMessageContent(response.bodyContent);
+                    }
                 } else {
-                    $('#xmlContainer').html(`
-                    <div class="alert alert-danger">
-                        <h6>Ошибка:</h6>
-                        <p>${response.error || 'Неизвестная ошибка'}</p>
-                    </div>
-                `);
+                    showError('Ошибка загрузки: ' + (response.error || 'Неизвестная ошибка'));
                 }
             },
-            error: function(xhr, status, error) {
-                $('#xmlContainer').html(`
-                <div class="alert alert-danger">
-                    <h6>Ошибка загрузки:</h6>
-                    <p>${error}</p>
-                    <small>Статус: ${xhr.status} ${xhr.statusText}</small>
-                </div>
-            `);
+            error: function (xhr, status, error) {
+                showError('Ошибка загрузки: ' + error);
             }
         });
     }
-    // Отображение Body содержимого как HTML
-    function showBodyContent(bodyContent, fields) {
-        if (!bodyContent) {
-            $('#xmlContainer').html('<div class="alert alert-warning">Содержимое Body не найдено</div>');
+
+    // Обновление информации о сообщении
+    function updateMessageInfo(message, fields = {}) {
+        if (!message) return;
+
+        // Очищаем предыдущие данные
+        $('#infoTo').empty();
+        $('#infoToCC').empty();
+        $('#infoBCC').empty();
+        $('#infoCaption').empty();
+
+        // Заполняем блок с информацией
+        $('#infoUUID').text(message.uuid || message.UUID || 'Нет');
+        $('#infoType').html(getTypeBadge(message.typeMes || ''));
+
+        // Форматирование дат
+        if (message.dateCreate) {
+            const dateCreate = new Date(message.dateCreate);
+            $('#infoDateCreate').text(formatDateTime(dateCreate));
+        } else {
+            $('#infoDateCreate').text('-');
+        }
+
+        if (message.dateEnd) {
+            const dateEnd = new Date(message.dateEnd);
+            $('#infoDateEnd').text(formatDateTime(dateEnd));
+        } else {
+            $('#infoDateEnd').html('<span class="text-muted">-</span>');
+        }
+
+        $('#infoStatus').html(getStatusBadge(message.status || ''));
+        $('#infoAttempts').html(getAttemptsBadge(message.numAttempt || 0));
+
+        // Заполняем адреса и тему из fields или из message
+        const to = fields.To || message.to || '';
+        const toCC = fields.ToCC || message.toCC || '';
+        const bcc = fields.BCC || message.bcc || '';
+        const caption = fields.Caption || message.caption || '';
+
+        // Отображаем тему
+        $('#infoCaption').text(caption || 'Без темы');
+
+        // Отображаем адреса
+        displayEmailList('#infoTo', to);
+        displayEmailList('#infoToCC', toCC);
+        displayEmailList('#infoBCC', bcc);
+
+        $('#messageInfo').show();
+    }
+
+    // Отображение списка email
+    function displayEmailList(selector, emails) {
+        const container = $(selector);
+
+        if (!emails || emails.trim() === '') {
+            container.html('<div class="text-muted">Нет адресов</div>');
             return;
         }
 
-        try {
-            // Проверяем, содержит ли Body HTML теги
-            const hasHtmlTags = /<[a-z][\s\S]*>/i.test(bodyContent);
+        // Разделяем email по запятой или точке с запятой
+        const emailList = emails.split(/[,;]/).map(email => email.trim()).filter(email => email);
 
-            if (hasHtmlTags) {
-                // Если есть HTML теги, отображаем как HTML
-                displayHtmlContent(bodyContent, fields);
-            } else {
-                // Если нет HTML тегов, отображаем как текст
-                $('#xmlContainer').html(`
-                <div class="border rounded">
-                    <div class="border-bottom p-2 bg-light">
-                        <small class="text-muted">Текстовое содержимое Body</small>
-                    </div>
-                    <div class="p-3" style="max-height: 400px; overflow: auto;">
-                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${escapeHtml(bodyContent)}</pre>
-                    </div>
-                </div>
-            `);
-            }
-        } catch (e) {
-            console.error('Ошибка отображения Body:', e);
-            $('#xmlContainer').html(`
-            <div class="alert alert-danger">
-                <h6>Ошибка при отображении:</h6>
-                <p>${e.message}</p>
-                <pre class="mt-2" style="font-size: 10px;">${escapeHtml(bodyContent.substring(0, 500))}...</pre>
-            </div>
-        `);
+        if (emailList.length === 0) {
+            container.html('<div class="text-muted">Нет адресов</div>');
+            return;
         }
-    }
-    // Показать исходный код Body
-    function showRawBody() {
-        const iframeContainer = $('#xmlContainer .border:first');
-        const rawContainer = $('#rawBodyContainer');
 
-        if (iframeContainer.is(':visible')) {
-            iframeContainer.hide();
-            rawContainer.show();
-        } else {
-            iframeContainer.show();
-            rawContainer.hide();
-        }
-    }
-    // Отображение HTML содержимого с информацией о письме
-    function displayHtmlContent(htmlContent, fields) {
-        const $container = $('#xmlContainer');
-        $container.empty();
+        // Создаем список email
+        let html = '';
+        emailList.forEach(email => {
+            // Проверяем, является ли это email
+            const isEmail = email.includes('@');
+            const emailClass = isEmail ? 'email-address' : '';
 
-        // ID для iframe
-        const iframeId = 'body-iframe-' + Date.now();
-
-        // Создаем структуру с вкладками
-        const html = `
-        <div class="card">
-            <!-- Заголовок с информацией -->
-            <div class="card-header bg-light p-2">
-                <div class="d-flex justify-content-start align-items-center">
-                    <div>
-                        <small class="text-muted">HTML содержимое письма</small>
-                        ${fields ? `<span class="badge bg-info ms-2">JSON формат</span>` : ''}
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary active" data-tab="preview" style="width: 120px;>
-                            <i class="bi bi-eye"></i> Предпросмотр
-                        </button>
-                        <button class="btn btn-outline-info" data-tab="info" ${!fields ? 'disabled' : ''} style="width: 120px;>
-                            <i class="bi bi-info-circle"></i> Информация
-                        </button>
-                        <button class="btn btn-outline-secondary" data-tab="source" style="width: 120px;>
-                            <i class="bi bi-code"></i> Исходный код
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Контейнер для контента -->
-            <div class="card-body p-0">
-                <!-- Вкладка предпросмотра -->
-                <div class="tab-content active" id="preview-tab">
-                    <iframe
-                        id="${iframeId}"
-                        srcdoc="${escapeHtmlForIframe(htmlContent)}"
-                        style="width: 100%; height: 500px; border: none;"
-                        sandbox="allow-same-origin allow-popups"
-                        title="HTML содержимое письма"
-                    ></iframe>
-                </div>
-
-                <!-- Вкладка исходного кода -->
-                <div class="tab-content d-none" id="source-tab">
-                    <div class="p-3 bg-dark text-light" style="max-height: 500px; overflow: auto;">
-                        <pre style="margin: 0; font-size: 12px;">${escapeHtml(htmlContent)}</pre>
-                    </div>
-                </div>
-
-                <!-- Вкладка информации -->
-                <div class="tab-content d-none" id="info-tab">
-                    <div class="p-3" style="max-height: 500px; overflow: auto;">
-                        ${fields ? renderFieldsInfo(fields) : '<p class="text-muted">Информация недоступна</p>'}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Подвал с кнопками
-            <div class="card-footer bg-light p-2">
-                <div class="d-flex justify-content-between">
-                    <small class="text-muted">Длина HTML: ${htmlContent.length} символов</small>
-                    <button class="btn btn-sm btn-outline-success" onclick="downloadHtmlContent('${escapeHtml(htmlContent)}')">
-                        <i class="bi bi-download"></i> Скачать HTML
-                    </button>
-                </div>
-            </div>-->
-        </div>
-    `;
-
-        $container.html(html);
-
-        // Настройка переключения вкладок
-        $('[data-tab]').click(function() {
-            const tab = $(this).data('tab');
-
-            // Обновляем активные кнопки
-            $('[data-tab]').removeClass('active').addClass('btn-outline-secondary');
-            $(this).removeClass('btn-outline-secondary').addClass('active');
-
-            // Показываем соответствующую вкладку
-            $('.tab-content').addClass('d-none').removeClass('active');
-            $(`#${tab}-tab`).removeClass('d-none').addClass('active');
+            html += `<div class="${emailClass} mb-1">${escapeHtml(email)}</div>`;
         });
+
+        container.html(html);
+    }
+
+    // Функция для получения HTML бейджа типа
+    function getTypeBadge(type) {
+        if (!type) return '<span class="type-badge type-default">-</span>';
+
+        switch (type.toUpperCase()) {
+            case 'EMAIL':
+                return '<span class="type-badge type-email">' + type + '</span>';
+            case 'SMS':
+                return '<span class="type-badge type-sms">' + type + '</span>';
+            case 'PUSH':
+                return '<span class="type-badge type-push">' + type + '</span>';
+            default:
+                return '<span class="type-badge type-default">' + type + '</span>';
+        }
+    }
+
+    // Функция для получения HTML бейджа статуса
+    function getStatusBadge(status) {
+        if (!status) return '<span class="status-badge status-null">Нет</span>';
+
+        switch (status.toUpperCase()) {
+            case 'SUCCESS':
+                return '<span class="status-badge status-success">' + status + '</span>';
+            case 'ERROR':
+                return '<span class="status-badge status-error">' + status + '</span>';
+            default:
+                return '<span class="status-badge status-pending">' + status + '</span>';
+        }
+    }
+
+    // Функция для получения HTML бейджа попыток
+    function getAttemptsBadge(attempts) {
+        const badgeClass = attempts > 3 ? 'badge bg-danger' : 'badge bg-secondary';
+        return '<span class="' + badgeClass + '">' + attempts + '</span>';
+    }
+
+    // Форматирование даты и времени
+    function formatDateTime(date) {
+        if (!date) return '';
+
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    // Отображение содержимого сообщения
+    function displayMessageContent(content) {
+        if (!content) {
+            showError('Нет содержимого');
+            return;
+        }
+
+        // Сохраняем исходный контент
+        window.currentMessageContent = content;
+
+        // Сбрасываем режим просмотра
+        currentViewMode = 'preview';
+
+        // Отображаем в зависимости от содержания HTML
+        if (content.includes('<') && content.includes('>')) {
+            // Содержит HTML - показываем в iframe
+            showHtmlPreview(content);
+        } else {
+            // Простой текст
+            showTextContent(content);
+        }
+    }
+
+    // Показать HTML в iframe
+    function showHtmlPreview(htmlContent) {
+        const iframeId = 'message-iframe-' + Date.now();
+        const escapedContent = escapeHtml(htmlContent)
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\r?\n/g, ' ');
+
+        const html = `
+                <div id="previewView">
+                    <div class="border rounded">
+                        <div class="border-bottom p-2 bg-light d-flex justify-content-between">
+                            <small class="text-muted">Предпросмотр HTML</small>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="showSourceView()">
+                                <i class="fas fa-code"></i> Исходный код
+                            </button>
+                        </div>
+                        <iframe
+                            id="${iframeId}"
+                            srcdoc="${escapedContent}"
+                            style="width: 100%; height: 300px; border: none;"
+                            sandbox="allow-same-origin"
+                            title="HTML содержимое"
+                        ></iframe>
+                    </div>
+                </div>
+                <div id="sourceView" style="display: none;">
+                    <div class="border rounded">
+                        <div class="border-bottom p-2 bg-light d-flex justify-content-between">
+                            <small class="text-muted">Исходный код HTML</small>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="showPreviewView()">
+                                <i class="fas fa-eye"></i> Предпросмотр
+                            </button>
+                        </div>
+                        <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto;">${escapeHtml(htmlContent)}</pre>
+                    </div>
+                </div>
+            `;
+
+        $('#htmlContainer').html(html);
 
         // Настройка iframe
         setTimeout(() => {
             const iframe = document.getElementById(iframeId);
             if (iframe) {
-                iframe.onload = function() {
+                iframe.onload = function () {
                     try {
-                        // Пытаемся подогнать высоту iframe под содержимое
                         const doc = iframe.contentDocument || iframe.contentWindow.document;
-                        const height = Math.max(500, doc.body.scrollHeight + 50);
-                        iframe.style.height = height + 'px';
+                        iframe.style.height = Math.max(300, doc.body.scrollHeight + 20) + 'px';
                     } catch (e) {
                         console.log('Не удалось изменить размер iframe');
                     }
@@ -539,139 +955,166 @@
             }
         }, 100);
     }
-    // Рендеринг информации о полях
-    function renderFieldsInfo(fields) {
-        let html = '<table class="table table-sm">';
-        html += '<thead><tr><th>Поле</th><th>Значение</th></tr></thead>';
-        html += '<tbody>';
 
-        for (const [key, value] of Object.entries(fields)) {
-            if (value) {
-                html += `<tr><td><strong>${escapeHtml(key)}</strong></td><td>${escapeHtml(value)}</td></tr>`;
-            }
-        }
-
-        html += '</tbody></table>';
-        return html;
+    // Показать текстовое содержимое
+    function showTextContent(textContent) {
+        const html = `
+                <div class="border rounded">
+                    <div class="border-bottom p-2 bg-light">
+                        <small class="text-muted">Текстовое содержимое</small>
+                    </div>
+                    <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto; white-space: pre-wrap;">${escapeHtml(textContent)}</pre>
+                </div>
+            `;
+        $('#htmlContainer').html(html);
     }
-    // Отображение XML содержимого
-    function showXmlContent(xmlContent) {
-        if (!xmlContent) {
-            $('#xmlContainer').html('<div class="text-muted">Нет данных</div>');
+
+    // Переключение между предпросмотром и исходным кодом
+    function toggleView() {
+        if (currentViewMode === 'preview') {
+            showSourceView();
+        } else {
+            showPreviewView();
+        }
+    }
+
+    function showPreviewView() {
+        $('#sourceView').hide();
+        $('#previewView').show();
+        currentViewMode = 'preview';
+    }
+
+    function showSourceView() {
+        $('#previewView').hide();
+        $('#sourceView').show();
+        currentViewMode = 'source';
+    }
+
+    // Поиск в тексте
+    function searchInContent() {
+        const searchText = prompt('Введите текст для поиска:');
+        if (!searchText) return;
+
+        const content = window.currentMessageContent;
+        if (!content) return;
+
+        const regex = new RegExp(escapeRegExp(searchText), 'gi');
+        const highlighted = content.replace(regex, match => `<mark>${match}</mark>`);
+
+        if (currentViewMode === 'source') {
+            $('#sourceView pre').html(escapeHtml(highlighted).replace(/\n/g, '<br>'));
+        } else {
+            // Для HTML предпросмотра нужно обновить iframe
+            showHtmlPreview(highlighted);
+        }
+    }
+
+    // Подсветка email
+    function highlightEmail() {
+        const email = $('#email').val();
+        if (!email) {
+            alert('Сначала введите email в поле поиска');
             return;
         }
 
-        try {
-            // Простое форматирование с подсветкой тегов
-            let formatted = escapeHtml(xmlContent);
+        const content = window.currentMessageContent;
+        if (!content) return;
 
-            // Подсветка тегов
-            formatted = formatted.replace(/&lt;(\/?)([a-zA-Z0-9_:-]+)([^&]*)&gt;/g,
-                '&lt;<span style="color: #800000; font-weight: bold;">$1$2</span>$3&gt;');
+        const regex = new RegExp(escapeRegExp(email), 'gi');
+        const highlighted = content.replace(regex, match => `<span style="background-color: yellow;">${match}</span>`);
 
-            // Подсветка атрибутов
-            formatted = formatted.replace(/([a-zA-Z0-9_-]+)=/g,
-                '<span style="color: #ff0000;">$1</span>=');
-
-            // Подсветка значений атрибутов
-            formatted = formatted.replace(/="([^"]*)"/g,
-                '="<span style="color: #0000ff;">$1</span>"');
-
-            // Подсветка комментариев
-            formatted = formatted.replace(/&lt;!--([^&]*)--&gt;/g,
-                '&lt;!--<span style="color: #808080; font-style: italic;">$1</span>--&gt;');
-
-            $('#xmlContainer').html(formatted);
-        } catch (e) {
-            $('#xmlContainer').html('<pre>' + escapeHtml(xmlContent) + '</pre>');
-        }
-    }
-
-    // Экранирование HTML
-    // function escapeHtml(text) {
-    //     const div = document.createElement('div');
-    //     div.textContent = text;
-    //     return div.innerHTML;
-    // }
-    // Экранирование HTML для безопасной вставки в iframe
-    // Скачивание HTML содержимого
-    function downloadHtmlContent(htmlContent) {
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `message-body-${currentSelectedId}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // Экранирование HTML для безопасной вставки в iframe
-    function escapeHtmlForIframe(text) {
-        return escapeHtml(text)
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/\r?\n/g, ' ');
-    }
-
-    // Экранирование HTML (базовое)
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    // Переключение выбора чекбокса
-    function toggleSelect(messageId, checkbox) {
-        const row = $(checkbox).closest('tr');
-
-        if ($(checkbox).is(':checked')) {
-            if (!selectedMessages.includes(messageId)) {
-                selectedMessages.push(messageId);
-            }
-            row.addClass('selected');
+        if (currentViewMode === 'source') {
+            $('#sourceView pre').html(escapeHtml(highlighted).replace(/\n/g, '<br>'));
         } else {
-            selectedMessages = selectedMessages.filter(id => id !== messageId);
-            row.removeClass('selected');
+            showHtmlPreview(highlighted);
+        }
+    }
 
-            // Если снимаем выделение с текущего выбранного сообщения
-            if (currentSelectedId === messageId) {
-                currentSelectedId = null;
-                resetMessageDetails();
-            }
+    // Копирование содержимого
+    function copyContent() {
+        if (!window.currentMessageContent) {
+            alert('Сначала выберите сообщение');
+            return;
         }
 
-        updateSelectedCount();
-        updateResendButton();
+        navigator.clipboard.writeText(window.currentMessageContent)
+            .then(() => alert('Содержимое скопировано в буфер обмена'))
+            .catch(err => alert('Ошибка копирования: ' + err));
     }
 
-    // Сброс области деталей
-    function resetMessageDetails() {
-        $('#detailMessageId').text('ID: -');
-        $('#detailMessageId').removeClass('bg-primary').addClass('bg-secondary');
-        $('#xmlContainer').html(`
-                <div class="text-center text-muted">
-                    <p>Выберите сообщение из таблицы для просмотра</p>
-                </div>
-            `);
+    // Копирование деталей сообщения
+    function copyDetails() {
+        if (!currentMessageData.message) {
+            alert('Сначала выберите сообщение');
+            return;
+        }
+
+        const message = currentMessageData.message;
+        const fields = currentMessageData.fields || {};
+
+        let details = 'Детали сообщения:\n';
+        details += '===================\n';
+        details += `ID: ${message.id || '-'}\n`;
+        details += `UUID: ${message.uuid || message.UUID || '-'}\n`;
+        details += `Тип: ${message.typeMes || '-'}\n`;
+        details += `Статус: ${message.status || '-'}\n`;
+        details += `Попыток: ${message.numAttempt || 0}\n`;
+
+        if (message.dateCreate) {
+            const dateCreate = new Date(message.dateCreate);
+            details += `Дата создания: ${formatDateTime(dateCreate)}\n`;
+        }
+
+        if (message.dateEnd) {
+            const dateEnd = new Date(message.dateEnd);
+            details += `Дата окончания: ${formatDateTime(dateEnd)}\n`;
+        }
+
+        details += `\nАдресаты:\n`;
+        details += `---------\n`;
+        details += `Тема: ${fields.Caption || message.caption || '-'}\n`;
+        details += `To: ${fields.To || message.to || '-'}\n`;
+        details += `ToCC: ${fields.ToCC || message.toCC || '-'}\n`;
+        details += `BCC: ${fields.BCC || message.bcc || '-'}\n`;
+        details += `\nТопик Kafka: ${message.kafkaTopic || '-'}\n`;
+        details += `Сервер: ${message.server || '-'}\n`;
+
+        navigator.clipboard.writeText(details)
+            .then(() => alert('Детали сообщения скопированы в буфер обмена'))
+            .catch(err => alert('Ошибка копирования: ' + err));
     }
 
-    // Обновление счетчика выбранных
-    function updateSelectedCount() {
+    // Обновление UI
+    function updateUI() {
+        // Обновляем счетчик
         $('#selectedCount').text(selectedMessages.length);
-    }
 
-    // Обновление состояния кнопки "Отправить повторно"
-    function updateResendButton() {
+        // Обновляем состояние кнопки
         $('#resendBtn').prop('disabled', selectedMessages.length === 0);
+
+        // Обновляем выделение строк
+        $('.clickable-row').each(function () {
+            const row = $(this);
+            const messageId = row.data('id');
+            const checkbox = row.find('.message-checkbox');
+
+            if (selectedMessages.includes(messageId)) {
+                row.addClass('selected');
+                checkbox.prop('checked', true);
+            } else {
+                if (currentSelectedId !== messageId) {
+                    row.removeClass('selected');
+                }
+                checkbox.prop('checked', false);
+            }
+        });
     }
 
     // Отправка выбранных сообщений повторно
     function resendSelectedMessages() {
         if (selectedMessages.length === 0) return;
 
-        if (!confirm(`Вы действительно хотите отправить повторно ${selectedMessages.length} сообщений?`)) {
+        if (!confirm(`Отправить повторно ${selectedMessages.length} сообщений?`)) {
             return;
         }
 
@@ -684,8 +1127,8 @@
             url: '/api/resend',
             type: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ messageIds: selectedMessages }),
-            success: function(response) {
+            data: JSON.stringify({messageIds: selectedMessages}),
+            success: function (response) {
                 if (response.success) {
                     alert(`Успешно обновлено: ${response.updatedCount} сообщений`);
 
@@ -699,21 +1142,18 @@
                     alert('Ошибка: ' + response.error);
                 }
             },
-            error: function() {
+            error: function () {
                 alert('Ошибка при отправке запроса');
             },
-            complete: function() {
+            complete: function () {
                 // Скрываем анимацию загрузки
                 $('#loadingOverlay').hide();
                 $('#loadingSpinner').hide();
 
                 // Сбрасываем выбор
                 selectedMessages = [];
-                $('.message-checkbox').prop('checked', false);
-                $('.clickable-row').removeClass('selected');
+                updateUI();
                 $('#selectAll, #selectAllTable').prop('checked', false);
-                updateSelectedCount();
-                updateResendButton();
             }
         });
     }
@@ -722,25 +1162,118 @@
     function updateTableRow(message) {
         const row = $(`tr[data-id="${message.id}"]`);
         if (row.length) {
-            // Обновляем статус
-            const statusCell = row.find('td:nth-child(5)');
-            statusCell.empty();
+            // Обновляем UUID
+            const uuidCell = row.find('td:nth-child(3)');
+            uuidCell.find('small').text(message.uuid ? abbreviate(message.uuid, 15) : 'Нет');
+            uuidCell.attr('title', message.uuid || '');
 
-            if (message.status == null) {
-                statusCell.append('<span class="status-badge status-null">Нет</span>');
-            } else if (message.status === 'SUCCESS') {
-                statusCell.append('<span class="status-badge status-success">SUCCESS</span>');
-            } else if (message.status === 'ERROR') {
-                statusCell.append('<span class="status-badge status-error">ERROR</span>');
+            // Обновляем тип сообщения
+            const typeCell = row.find('td:nth-child(4)');
+            typeCell.empty();
+            typeCell.append(getTypeBadge(message.typeMes || ''));
+
+            // Обновляем статус
+            const statusCell = row.find('td:nth-child(6)');
+            statusCell.empty();
+            statusCell.append(getStatusBadge(message.status || ''));
+
+            // Обновляем дату окончания
+            const dateEndCell = row.find('td:nth-child(8)');
+            if (message.dateEnd) {
+                const dateEnd = new Date(message.dateEnd);
+                dateEndCell.find('small').text(formatDateTime(dateEnd));
             } else {
-                statusCell.append('<span class="status-badge status-pending">' + message.status + '</span>');
+                dateEndCell.html('<small class="text-muted">-</small>');
             }
 
             // Обновляем количество попыток
-            const attemptsCell = row.find('td:nth-child(10)');
+            const attemptsCell = row.find('td:nth-child(9)');
             attemptsCell.empty();
-            const badgeClass = message.numAttempt > 3 ? 'badge bg-danger' : 'badge bg-secondary';
-            attemptsCell.append('<span class="' + badgeClass + '">' + message.numAttempt + '</span>');
+            attemptsCell.append(getAttemptsBadge(message.numAttempt || 0));
+        }
+    }
+
+    // Вспомогательные функции
+    function showError(message) {
+        $('#htmlContainer').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    ${message}
+                </div>
+            `);
+    }
+
+    // Выбор даты из списка
+    function selectDate(element) {
+        const dateValue = $(element).data('date');
+        $('#dateInput').val(dateValue);
+        $('#dateSuggestions').hide();
+
+        // Можно автоматически отправить форму
+        // $('#searchForm').submit();
+    }
+
+    // Очистка поля даты
+    function clearDate() {
+        $('#dateInput').val('');
+        // Также очищаем поле в форме
+        $('input[name="dateCreate"]').val('');
+        // Можно отправить форму для поиска без даты
+        // $('#searchForm').submit();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function abbreviate(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength - 3) + '...';
+    }
+    // Функция для переключения видимости блока с информацией о сообщении
+    function toggleMessageInfo() {
+        const messageInfo = document.getElementById('messageInfo');
+        const toggleIcon = document.getElementById('detailsToggleIcon');
+
+        if (messageInfo.style.display === 'none') {
+            // Показываем блок
+            messageInfo.style.display = 'block';
+            toggleIcon.className = 'fas fa-chevron-up ms-1';
+            // Сохраняем состояние в localStorage
+            localStorage.setItem('messageInfoVisible', 'true');
+        } else {
+            // Скрываем блок
+            messageInfo.style.display = 'none';
+            toggleIcon.className = 'fas fa-chevron-down ms-1';
+            // Сохраняем состояние в localStorage
+            localStorage.setItem('messageInfoVisible', 'false');
+        }
+    }
+
+    // Функция для восстановления состояния блока из localStorage
+    function restoreMessageInfoState() {
+        const savedState = localStorage.getItem('messageInfoVisible');
+        const messageInfo = document.getElementById('messageInfo');
+        const toggleIcon = document.getElementById('detailsToggleIcon');
+
+        if (savedState === 'true') {
+            messageInfo.style.display = 'block';
+            if (toggleIcon) {
+                toggleIcon.className = 'fas fa-chevron-up ms-1';
+            }
+        } else {
+            messageInfo.style.display = 'none';
+            if (toggleIcon) {
+                toggleIcon.className = 'fas fa-chevron-down ms-1';
+            }
         }
     }
 </script>

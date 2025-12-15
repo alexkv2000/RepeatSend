@@ -1,16 +1,17 @@
 package ru.kvo.Controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.ResponseEntity;
+import ru.kvo.Dto.SearchRequest;
 import ru.kvo.Entity.Message;
 import ru.kvo.Service.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,86 +25,76 @@ public class MessageController {
 
     @GetMapping("/")
     public String showSearchPage(Model model) {
-        model.addAttribute("searchEmail", "");
+        model.addAttribute("searchRequest", new SearchRequest());
+
+        // Получаем список уникальных дат для автозаполнения
+        List<LocalDate> uniqueDates = messageService.getUniqueDates();
+        model.addAttribute("uniqueDates", uniqueDates);
+
         return "index";
     }
 
     @PostMapping("/search")
-    public String searchMessages(@RequestParam("email") String email, Model model) {
-        List<Message> messages = messageService.searchByEmail(email);
-        model.addAttribute("messages", messages);
-        model.addAttribute("searchEmail", email);
-        return "index";
-    }
+    public String searchMessages(@ModelAttribute SearchRequest searchRequest,
+                                 Model model) {
 
-    @GetMapping("/api/message/{id}")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> getMessage(@PathVariable Long id) {
-        Map<String, Object> response = new HashMap<>();
+        log.info("Поиск: email={}, date={}",
+                searchRequest.getEmail(), searchRequest.getDateCreate());
 
-        try {
-            Message message = messageService.getMessageById(id);
-            if (message != null) {
-                response.put("success", true);
-                response.put("message", message);
+        // Валидация
+        boolean emailEmpty = searchRequest.getEmail() == null ||
+                searchRequest.getEmail().trim().isEmpty();
+        boolean dateEmpty = searchRequest.getDateCreate() == null;
 
-                // Извлекаем Body
-                String bodyContent = messageService.extractBodyFromMessage(message.getMessage());
-                response.put("bodyContent", bodyContent);
-            } else {
-                response.put("success", false);
-                response.put("error", "Сообщение не найдено");
-            }
-        } catch (Exception e) {
-            log.error("Ошибка получения сообщения", e);
-            response.put("success", false);
-            response.put("error", e.getMessage());
+        if (emailEmpty && dateEmpty) {
+            model.addAttribute("error", "Заполните хотя бы одно поле: Email или Дата");
+            model.addAttribute("searchRequest", searchRequest);
+
+            // Добавляем список дат
+            List<LocalDate> uniqueDates = messageService.getUniqueDates();
+            model.addAttribute("uniqueDates", uniqueDates);
+
+            return "index";
         }
 
-        return ResponseEntity.ok(response);
+        try {
+            List<Message> messages = messageService.searchMessages(searchRequest);
+            model.addAttribute("messages", messages);
+            model.addAttribute("searchRequest", searchRequest); // Сохраняем запрос
+            model.addAttribute("searchResultCount", messages.size());
+
+            // Добавляем список дат
+            List<LocalDate> uniqueDates = messageService.getUniqueDates();
+            model.addAttribute("uniqueDates", uniqueDates);
+
+        } catch (Exception e) {
+            model.addAttribute("error", "Ошибка поиска: " + e.getMessage());
+            model.addAttribute("searchRequest", searchRequest);
+
+            // Добавляем список дат
+            List<LocalDate> uniqueDates = messageService.getUniqueDates();
+            model.addAttribute("uniqueDates", uniqueDates);
+        }
+
+        return "index";
     }
 
     @GetMapping("/api/message/{id}/full")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getFullMessage(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getMessageFull(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            Message message = messageService.getMessageById(id);
-            if (message != null) {
+            Map<String, Object> messageInfo = messageService.getMessageFullInfo(id);
+
+            if (messageInfo.containsKey("message")) {
                 response.put("success", true);
-                response.put("message", message);
-
-                // Извлекаем Body из JSON
-                String bodyContent = messageService.extractBodyFromJsonMessage(message.getMessage());
-                response.put("bodyContent", bodyContent);
-
-                // Определяем формат сообщения
-                boolean isJson = message.getMessage().trim().startsWith("{");
-                response.put("isJson", isJson);
-
-                // Получаем другие поля для отладки
-                if (isJson) {
-                    try {
-                        ObjectMapper mapper = new ObjectMapper();
-                        JsonNode jsonNode = mapper.readTree(message.getMessage());
-
-                        // Извлекаем основные поля
-                        Map<String, String> fields = new HashMap<>();
-                        fields.put("To", jsonNode.has("To") ? jsonNode.get("To").asText() : "");
-                        fields.put("ToCC", jsonNode.has("ToCC") ? jsonNode.get("ToCC").asText() : "");
-                        fields.put("Caption", jsonNode.has("Caption") ? jsonNode.get("Caption").asText() : "");
-                        fields.put("typeMes", jsonNode.has("typeMes") ? jsonNode.get("typeMes").asText() : "");
-
-                        response.put("fields", fields);
-                    } catch (Exception e) {
-                        log.debug("Не удалось распарсить JSON полностью: {}", e.getMessage());
-                    }
-                }
+                response.putAll(messageInfo);
             } else {
                 response.put("success", false);
                 response.put("error", "Сообщение не найдено");
             }
+
         } catch (Exception e) {
             log.error("Ошибка получения сообщения", e);
             response.put("success", false);
@@ -115,26 +106,19 @@ public class MessageController {
 
     @PostMapping("/api/resend")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> resendMessages(@RequestBody Map<String, List<Long>> request) {
+    public Map<String, Object> resendMessages(@RequestBody Map<String, List<Long>> request) {
         Map<String, Object> response = new HashMap<>();
 
         try {
             List<Long> messageIds = request.get("messageIds");
             int updated = messageService.resendMessages(messageIds);
-
             response.put("success", true);
             response.put("updatedCount", updated);
-
-            // Получаем обновленные сообщения
-            List<Message> updatedMessages = messageService.getMessagesByIds(messageIds);
-            response.put("messages", updatedMessages);
-
         } catch (Exception e) {
-            log.error("Ошибка при обновлении сообщений", e);
             response.put("success", false);
-            response.put("error", "Ошибка при обновлении: " + e.getMessage());
+            response.put("error", e.getMessage());
         }
 
-        return ResponseEntity.ok(response);
+        return response;
     }
 }
