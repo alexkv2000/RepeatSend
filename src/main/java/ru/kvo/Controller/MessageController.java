@@ -1,5 +1,7 @@
 package ru.kvo.Controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.kvo.Entity.Message;
 import ru.kvo.Service.MessageService;
 import lombok.RequiredArgsConstructor;
@@ -61,24 +63,49 @@ public class MessageController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/api/message/{id}/body")
+    @GetMapping("/api/message/{id}/full")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getMessageBody(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getFullMessage(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
 
         try {
             Message message = messageService.getMessageById(id);
             if (message != null) {
-                String bodyContent = messageService.extractBodyFromMessage(message.getMessage());
                 response.put("success", true);
+                response.put("message", message);
+
+                // Извлекаем Body из JSON
+                String bodyContent = messageService.extractBodyFromJsonMessage(message.getMessage());
                 response.put("bodyContent", bodyContent);
-                response.put("messageId", id);
+
+                // Определяем формат сообщения
+                boolean isJson = message.getMessage().trim().startsWith("{");
+                response.put("isJson", isJson);
+
+                // Получаем другие поля для отладки
+                if (isJson) {
+                    try {
+                        ObjectMapper mapper = new ObjectMapper();
+                        JsonNode jsonNode = mapper.readTree(message.getMessage());
+
+                        // Извлекаем основные поля
+                        Map<String, String> fields = new HashMap<>();
+                        fields.put("To", jsonNode.has("To") ? jsonNode.get("To").asText() : "");
+                        fields.put("ToCC", jsonNode.has("ToCC") ? jsonNode.get("ToCC").asText() : "");
+                        fields.put("Caption", jsonNode.has("Caption") ? jsonNode.get("Caption").asText() : "");
+                        fields.put("typeMes", jsonNode.has("typeMes") ? jsonNode.get("typeMes").asText() : "");
+
+                        response.put("fields", fields);
+                    } catch (Exception e) {
+                        log.debug("Не удалось распарсить JSON полностью: {}", e.getMessage());
+                    }
+                }
             } else {
                 response.put("success", false);
                 response.put("error", "Сообщение не найдено");
             }
         } catch (Exception e) {
-            log.error("Ошибка получения тела сообщения", e);
+            log.error("Ошибка получения сообщения", e);
             response.put("success", false);
             response.put("error", e.getMessage());
         }
