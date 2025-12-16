@@ -333,6 +333,28 @@
             height: 0;
             opacity: 0;
         }
+
+        /* Стили для формы редактирования */
+        .form-control-sm {
+            font-size: 12px;
+        }
+
+        .edit-field-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
+        .edit-btn-sm {
+            padding: 0;
+            font-size: 10px;
+            height: 16px;
+            width: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -409,7 +431,6 @@
         </div>
     </div>
 
-
     <!-- Результаты поиска -->
     <div th:if="${messages != null and !messages.empty}">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -485,7 +506,7 @@
                             <span th:if="${message.status != null and message.status == 'SUCCESS'}"
                                   class="status-badge status-success" th:text="${message.status}"></span>
                             <span th:if="${message.status != null and message.status == 'ERROR'}"
-                                  class="status-badge status-error" th-text="${message.status}"></span>
+                                  class="status-badge status-error" th:text="${message.status}"></span>
                             <span th:if="${message.status != null and message.status != 'SUCCESS' and message.status != 'ERROR'}"
                                   class="status-badge status-pending" th:text="${message.status}"></span>
                         </td>
@@ -514,9 +535,9 @@
                         <h6 class="mb-0">
                             <i class="fas fa-file-code me-2"></i>
                             <span class="details-title" style="cursor: pointer;" onclick="toggleMessageInfo()">
-                    Детали сообщения
-                    <i id="detailsToggleIcon" class="fas fa-chevron-down ms-1"></i>
-                </span>
+                                Детали сообщения
+                                <i id="detailsToggleIcon" class="fas fa-chevron-down ms-1"></i>
+                            </span>
                         </h6>
                         <div class="d-flex align-items-center">
                             <span id="detailMessageId" class="badge bg-secondary me-2">ID: -</span>
@@ -525,6 +546,10 @@
                             </button>
                             <button class="icon-btn" onclick="copyDetails()" title="Копировать детали">
                                 <i class="fas fa-clipboard-list"></i>
+                            </button>
+                            <!-- Кнопка редактирования -->
+                            <button class="icon-btn" onclick="toggleEditMode()" title="Редактировать адреса">
+                                <i id="editIcon" class="fas fa-edit"></i>
                             </button>
                         </div>
                     </div>
@@ -535,63 +560,120 @@
 
                 <!-- Блок с основной информацией -->
                 <div id="messageInfo" class="mb-3 p-3 border rounded" style="display: none;">
-                    <!-- Блок 1: Основная информация -->
-                    <div class="row mb-2">
-                        <div class="col-md-6">
-                            <small class="text-muted d-block">UUID:</small>
-                            <div id="infoUUID" class="email-address small"></div>
+                    <!-- Режим просмотра -->
+                    <div id="viewMode">
+                        <!-- Блок 1: Основная информация -->
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">UUID:</small>
+                                <div id="infoUUID" class="email-address small"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Тип:</small>
+                                <div id="infoType"></div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <small class="text-muted d-block">Тип:</small>
-                            <div id="infoType"></div>
+
+                        <!-- Блок 2: Даты -->
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Дата создания:</small>
+                                <div id="infoDateCreate" class="small"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Дата окончания:</small>
+                                <div id="infoDateEnd" class="small"></div>
+                            </div>
+                        </div>
+
+                        <!-- Блок 3: Статус и попытки -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Статус:</small>
+                                <div id="infoStatus"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Попыток:</small>
+                                <div id="infoAttempts"></div>
+                            </div>
+                        </div>
+
+                        <!-- Блок 4: Адресаты -->
+                        <div class="row mb-2">
+                            <div class="col-md-12">
+                                <small class="text-muted d-block">Тема (Caption):</small>
+                                <div id="infoCaption" class="fw-semibold small"></div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="edit-field-header mb-1">
+                                    <small class="text-muted">To (Кому):</small>
+                                    <button class="btn btn-sm btn-link p-0 edit-btn-sm" onclick="editField('To')" title="Редактировать">
+                                        <i class="fas fa-edit fa-xs"></i>
+                                    </button>
+                                </div>
+                                <div id="infoTo" class="email-list small"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="edit-field-header mb-1">
+                                    <small class="text-muted">ToCC (Копия):</small>
+                                    <button class="btn btn-sm btn-link p-0 edit-btn-sm" onclick="editField('ToCC')" title="Редактировать">
+                                        <i class="fas fa-edit fa-xs"></i>
+                                    </button>
+                                </div>
+                                <div id="infoToCC" class="email-list small"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="edit-field-header mb-1">
+                                    <small class="text-muted">BCC (Скрытая копия):</small>
+                                    <button class="btn btn-sm btn-link p-0 edit-btn-sm" onclick="editField('BCC')" title="Редактировать">
+                                        <i class="fas fa-edit fa-xs"></i>
+                                    </button>
+                                </div>
+                                <div id="infoBCC" class="email-list small"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Блок 2: Даты -->
-                    <div class="row mb-2">
-                        <div class="col-md-6">
-                            <small class="text-muted d-block">Дата создания:</small>
-                            <div id="infoDateCreate" class="small"></div>
+                    <!-- Режим редактирования -->
+                    <div id="editMode" style="display: none;">
+                        <div class="alert alert-info mb-2 py-2">
+                            <i class="fas fa-edit me-1"></i> Режим редактирования адресов
                         </div>
-                        <div class="col-md-6">
-                            <small class="text-muted d-block">Дата окончания:</small>
-                            <div id="infoDateEnd" class="small"></div>
-                        </div>
-                    </div>
 
-                    <!-- Блок 3: Статус и попытки -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <small class="text-muted d-block">Статус:</small>
-                            <div id="infoStatus"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <small class="text-muted d-block">Попыток:</small>
-                            <div id="infoAttempts"></div>
-                        </div>
-                    </div>
+                        <form id="editForm" onsubmit="saveChanges(event)">
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">To (Кому):</label>
+                                <textarea id="editTo" class="form-control form-control-sm"
+                                          rows="2" placeholder="Введите email через запятую"></textarea>
+                                <div class="form-text">Разделяйте email запятыми</div>
+                            </div>
 
-                    <!-- Блок 4: Адресаты -->
-                    <div class="row mb-2">
-                        <div class="col-md-12">
-                            <small class="text-muted d-block">Тема (Caption):</small>
-                            <div id="infoCaption" class="fw-semibold small"></div>
-                        </div>
-                    </div>
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">ToCC (Копия):</label>
+                                <textarea id="editToCC" class="form-control form-control-sm"
+                                          rows="2" placeholder="Введите email через запятую"></textarea>
+                                <div class="form-text">Разделяйте email запятыми</div>
+                            </div>
 
-                    <div class="row">
-                        <div class="col-md-4">
-                            <small class="text-muted d-block">To (Кому):</small>
-                            <div id="infoTo" class="email-list small"></div>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block">ToCC (Копия):</small>
-                            <div id="infoToCC" class="email-list small"></div>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block">BCC (Скрытая копия):</small>
-                            <div id="infoBCC" class="email-list small"></div>
-                        </div>
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">BCC (Скрытая копия):</label>
+                                <textarea id="editBCC" class="form-control form-control-sm"
+                                          rows="2" placeholder="Введите email через запятую"></textarea>
+                                <div class="form-text">Разделяйте email запятыми</div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit()">
+                                    Отмена
+                                </button>
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    Сохранить
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -651,12 +733,15 @@
     let currentSelectedId = null;
     let currentViewMode = 'preview'; // 'preview' или 'source'
     let currentMessageData = {}; // Храним все данные текущего сообщения
+    let isEditMode = false;
+    let originalFields = {};
 
     $(document).ready(function () {
         console.log('Страница загружена');
 
         initDateField();
         restoreMessageInfoState();
+
         // Обработчик для "Выбрать все"
         $('#selectAll, #selectAllTable').change(function () {
             const isChecked = $(this).is(':checked');
@@ -666,7 +751,8 @@
             });
             updateUI();
         });
-// Отслеживание ввода email для подсветки
+
+        // Отслеживание ввода email для подсветки
         $('#emailInput').on('input', function() {
             const email = $(this).val().trim();
 
@@ -679,7 +765,7 @@
             }
         });
 
-// Сброс кнопки при очистке поля
+        // Сброс кнопки при очистке поля
         $('#emailInput').on('blur', function() {
             if (!$(this).val().trim()) {
                 const highlightBtn = $('button[onclick="highlightEmail()"]');
@@ -687,6 +773,7 @@
                 highlightBtn.html('<i class="fas fa-highlighter me-1"></i> Подсветить email');
             }
         });
+
         // Обработчик для кнопки "Отправить повторно"
         $('#resendBtn').click(resendSelectedMessages);
     });
@@ -738,6 +825,12 @@
         $(rowElement).addClass('selected');
 
         currentSelectedId = messageId;
+
+        // Выходим из режима редактирования если он был активен
+        if (isEditMode) {
+            exitEditMode();
+        }
+
         loadMessageDetails(messageId);
     }
 
@@ -775,13 +868,13 @@
         // Показываем загрузку
         $('#messageInfo').hide();
         $('#htmlContainer').html(`
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Загрузка...</span>
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2 text-muted">Загрузка содержимого...</p>
             </div>
-            <p class="mt-2 text-muted">Загрузка содержимого...</p>
-        </div>
-    `);
+        `);
 
         // Загружаем с сервера
         $.ajax({
@@ -873,7 +966,7 @@
         const container = $(selector);
 
         if (!emails || emails.trim() === '') {
-            container.html('<div class="text-muted">Нет адресов</div>');
+            container.html('<div class="text-muted small">Нет адресов</div>');
             return;
         }
 
@@ -881,7 +974,7 @@
         const emailList = emails.split(/[,;]/).map(email => email.trim()).filter(email => email);
 
         if (emailList.length === 0) {
-            container.html('<div class="text-muted">Нет адресов</div>');
+            container.html('<div class="text-muted small">Нет адресов</div>');
             return;
         }
 
@@ -892,7 +985,7 @@
             const isEmail = email.includes('@');
             const emailClass = isEmail ? 'email-address' : '';
 
-            html += `<div class="${emailClass} mb-1">${escapeHtml(email)}</div>`;
+            html += `<div class="${emailClass} mb-1 small">${escapeHtml(email)}</div>`;
         });
 
         container.html(html);
@@ -980,35 +1073,35 @@
             .replace(/\r?\n/g, ' ');
 
         const html = `
-                <div id="previewView">
-                    <div class="border rounded">
-                        <div class="border-bottom p-2 bg-light d-flex justify-content-between">
-                            <small class="text-muted">Предпросмотр HTML</small>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="showSourceView()">
-                                <i class="fas fa-code"></i> Исходный код
-                            </button>
-                        </div>
-                        <iframe
-                            id="${iframeId}"
-                            srcdoc="${escapedContent}"
-                            style="width: 100%; height: 300px; border: none;"
-                            sandbox="allow-same-origin"
-                            title="HTML содержимое"
-                        ></iframe>
+            <div id="previewView">
+                <div class="border rounded">
+                    <div class="border-bottom p-2 bg-light d-flex justify-content-between">
+                        <small class="text-muted">Предпросмотр HTML</small>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="showSourceView()">
+                            <i class="fas fa-code"></i> Исходный код
+                        </button>
                     </div>
+                    <iframe
+                        id="${iframeId}"
+                        srcdoc="${escapedContent}"
+                        style="width: 100%; height: 300px; border: none;"
+                        sandbox="allow-same-origin"
+                        title="HTML содержимое"
+                    ></iframe>
                 </div>
-                <div id="sourceView" style="display: none;">
-                    <div class="border rounded">
-                        <div class="border-bottom p-2 bg-light d-flex justify-content-between">
-                            <small class="text-muted">Исходный код HTML</small>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="showPreviewView()">
-                                <i class="fas fa-eye"></i> Предпросмотр
-                            </button>
-                        </div>
-                        <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto;">${escapeHtml(htmlContent)}</pre>
+            </div>
+            <div id="sourceView" style="display: none;">
+                <div class="border rounded">
+                    <div class="border-bottom p-2 bg-light d-flex justify-content-between">
+                        <small class="text-muted">Исходный код HTML</small>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="showPreviewView()">
+                            <i class="fas fa-eye"></i> Предпросмотр
+                        </button>
                     </div>
+                    <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto;">${escapeHtml(htmlContent)}</pre>
                 </div>
-            `;
+            </div>
+        `;
 
         $('#htmlContainer').html(html);
 
@@ -1034,22 +1127,24 @@
     // Показать текстовое содержимое
     function showTextContent(textContent) {
         const html = `
-                <div class="border rounded">
-                    <div class="border-bottom p-2 bg-light">
-                        <small class="text-muted">Текстовое содержимое</small>
-                    </div>
-                    <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto; white-space: pre-wrap;">${escapeHtml(textContent)}</pre>
+            <div class="border rounded">
+                <div class="border-bottom p-2 bg-light">
+                    <small class="text-muted">Текстовое содержимое</small>
                 </div>
-            `;
+                <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto; white-space: pre-wrap;">${escapeHtml(textContent)}</pre>
+            </div>
+        `;
         $('#htmlContainer').html(html);
         setTimeout(() => {
             resizeContentIframe();
         }, 100);
     }
+
     // Добавляем обработчик ресайза окна
     window.addEventListener('resize', function() {
         resizeContentIframe();
     });
+
     // Переключение между предпросмотром и исходным кодом
     function toggleView() {
         if (currentViewMode === 'preview') {
@@ -1122,13 +1217,13 @@
         } else {
             // Для текстового содержимого
             const html = `
-            <div class="border rounded">
-                <div class="border-bottom p-2 bg-light">
-                    <small class="text-muted">Текстовое содержимое (email подсвечен)</small>
+                <div class="border rounded">
+                    <div class="border-bottom p-2 bg-light">
+                        <small class="text-muted">Текстовое содержимое (email подсвечен)</small>
+                    </div>
+                    <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto; white-space: pre-wrap;">${escapeHtml(highlighted)}</pre>
                 </div>
-                <pre class="p-3 mb-0" style="max-height: 300px; overflow: auto; white-space: pre-wrap;">${escapeHtml(highlighted)}</pre>
-            </div>
-        `;
+            `;
             $('#htmlContainer').html(html);
         }
 
@@ -1140,18 +1235,20 @@
             showNotification(`Email "${email}" не найден в содержимом сообщения`, 'warning');
         }
     }
+
     // Вспомогательная функция для показа уведомлений
     function showNotification(message, type = 'info') {
         // Создаем временное уведомление
         const alertClass = type === 'success' ? 'alert-success' :
-            type === 'warning' ? 'alert-warning' : 'alert-info';
+            type === 'warning' ? 'alert-warning' :
+                type === 'error' ? 'alert-danger' : 'alert-info';
 
         const notification = $(`
-        <div class="alert ${alertClass} alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            <i class="fas fa-info-circle me-2"></i>${message}
-        </div>
-    `);
+            <div class="alert ${alertClass} alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} me-2"></i>${message}
+            </div>
+        `);
 
         $('body').append(notification);
 
@@ -1160,6 +1257,7 @@
             notification.alert('close');
         }, 3000);
     }
+
     // Копирование содержимого
     function copyContent() {
         if (!window.currentMessageContent) {
@@ -1168,8 +1266,8 @@
         }
 
         navigator.clipboard.writeText(window.currentMessageContent)
-            .then(() => alert('Содержимое скопировано в буфер обмена'))
-            .catch(err => alert('Ошибка копирования: ' + err));
+            .then(() => showNotification('Содержимое скопировано в буфер обмена', 'success'))
+            .catch(err => showNotification('Ошибка копирования: ' + err, 'error'));
     }
 
     // Копирование деталей сообщения
@@ -1210,8 +1308,8 @@
         details += `Сервер: ${message.server || '-'}\n`;
 
         navigator.clipboard.writeText(details)
-            .then(() => alert('Детали сообщения скопированы в буфер обмена'))
-            .catch(err => alert('Ошибка копирования: ' + err));
+            .then(() => showNotification('Детали сообщения скопированы в буфер обмена', 'success'))
+            .catch(err => showNotification('Ошибка копирования: ' + err, 'error'));
     }
 
     // Обновление UI
@@ -1260,7 +1358,7 @@
             data: JSON.stringify({messageIds: selectedMessages}),
             success: function (response) {
                 if (response.success) {
-                    alert(`Успешно обновлено: ${response.updatedCount} сообщений`);
+                    showNotification(`Успешно обновлено: ${response.updatedCount} сообщений`, 'success');
 
                     // Обновляем данные в таблице
                     if (response.messages) {
@@ -1269,11 +1367,11 @@
                         });
                     }
                 } else {
-                    alert('Ошибка: ' + response.error);
+                    showNotification('Ошибка: ' + (response.error || 'Неизвестная ошибка'), 'error');
                 }
             },
             error: function () {
-                alert('Ошибка при отправке запроса');
+                showNotification('Ошибка при отправке запроса', 'error');
             },
             complete: function () {
                 // Скрываем анимацию загрузки
@@ -1326,11 +1424,11 @@
     // Вспомогательные функции
     function showError(message) {
         $('#htmlContainer').html(`
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    ${message}
-                </div>
-            `);
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                ${message}
+            </div>
+        `);
     }
 
     // Выбор даты из списка
@@ -1408,6 +1506,7 @@
             }, 300);
         }
     }
+
     // Функция для обновления размеров iframe с содержимым
     function resizeContentIframe() {
         const iframe = document.querySelector('#htmlContainer iframe');
@@ -1433,6 +1532,7 @@
             }
         }
     }
+
     // Функция для восстановления состояния блока из localStorage
     function restoreMessageInfoState() {
         const savedState = localStorage.getItem('messageInfoVisible');
@@ -1462,6 +1562,158 @@
                 resizeContentIframe();
             }, 100);
         }
+    }
+
+    // ========== ФУНКЦИИ ДЛЯ РЕДАКТИРОВАНИЯ ==========
+
+    // Переключение режима редактирования
+    function toggleEditMode() {
+        if (!currentSelectedId) {
+            alert('Сначала выберите сообщение');
+            return;
+        }
+
+        if (!isEditMode) {
+            // Переходим в режим редактирования
+            enterEditMode();
+        } else {
+            // Выходим из режима редактирования
+            exitEditMode();
+        }
+    }
+
+    // Вход в режим редактирования
+    function enterEditMode() {
+        isEditMode = true;
+
+        // Сохраняем оригинальные значения
+        originalFields = {
+            To: $('#infoTo').text().trim(),
+            ToCC: $('#infoToCC').text().trim(),
+            BCC: $('#infoBCC').text().trim()
+        };
+
+        // Заполняем поля формы
+        $('#editTo').val(formatEmailListForEdit(originalFields.To));
+        $('#editToCC').val(formatEmailListForEdit(originalFields.ToCC));
+        $('#editBCC').val(formatEmailListForEdit(originalFields.BCC));
+
+        // Переключаем отображение
+        $('#viewMode').hide();
+        $('#editMode').show();
+
+        // Обновляем иконку
+        $('#editIcon').removeClass('fa-edit').addClass('fa-times');
+    }
+
+    // Выход из режима редактирования
+    function exitEditMode() {
+        isEditMode = false;
+
+        // Переключаем отображение
+        $('#viewMode').show();
+        $('#editMode').hide();
+
+        // Обновляем иконку
+        $('#editIcon').removeClass('fa-times').addClass('fa-edit');
+    }
+
+    // Отмена редактирования
+    function cancelEdit() {
+        exitEditMode();
+    }
+
+    // Сохранение изменений
+    function saveChanges(event) {
+        event.preventDefault();
+
+        if (!currentSelectedId) return;
+
+        // Показываем загрузку
+        $('#loadingOverlay').show();
+        $('#loadingSpinner').show();
+
+        // Подготавливаем данные
+        const updateData = {
+            to: $('#editTo').val().trim(),
+            toCC: $('#editToCC').val().trim(),
+            bcc: $('#editBCC').val().trim()
+        };
+
+        // Отправляем запрос на сервер
+        $.ajax({
+            url: '/api/message/' + currentSelectedId + '/update',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(updateData),
+            success: function(response) {
+                if (response.success) {
+                    // Обновляем отображение
+                    displayEmailList('#infoTo', updateData.to);
+                    displayEmailList('#infoToCC', updateData.toCC);
+                    displayEmailList('#infoBCC', updateData.bcc);
+
+                    // Выходим из режима редактирования
+                    exitEditMode();
+
+                    // Показываем уведомление
+                    showNotification(response.message || 'Данные успешно обновлены', 'success');
+
+                    // Обновляем данные в памяти
+                    if (currentMessageData.fields) {
+                        currentMessageData.fields.To = updateData.to;
+                        currentMessageData.fields.ToCC = updateData.toCC;
+                        currentMessageData.fields.BCC = updateData.bcc;
+                    }
+                } else {
+                    showNotification('Ошибка: ' + (response.error || 'Неизвестная ошибка'), 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                showNotification('Ошибка сети: ' + error, 'error');
+            },
+            complete: function() {
+                $('#loadingOverlay').hide();
+                $('#loadingSpinner').hide();
+            }
+        });
+    }
+
+    // Редактирование конкретного поля
+    function editField(fieldName) {
+        if (!currentSelectedId) {
+            alert('Сначала выберите сообщение');
+            return;
+        }
+
+        // Переходим в режим редактирования
+        if (!isEditMode) {
+            enterEditMode();
+        }
+
+        // Фокусируемся на нужном поле
+        switch(fieldName) {
+            case 'To':
+                $('#editTo').focus();
+                break;
+            case 'ToCC':
+                $('#editToCC').focus();
+                break;
+            case 'BCC':
+                $('#editBCC').focus();
+                break;
+        }
+    }
+
+    // Форматирование списка email для редактирования
+    function formatEmailListForEdit(text) {
+        if (!text || text === 'Нет адресов') return '';
+
+        // Разделяем по переносам строк и удаляем HTML теги
+        return text.split('\n')
+            .map(line => line.replace(/<[^>]*>/g, '').trim())
+            .filter(line => line && line !== 'Нет адресов')
+            .join(', ');
     }
 </script>
 </body>

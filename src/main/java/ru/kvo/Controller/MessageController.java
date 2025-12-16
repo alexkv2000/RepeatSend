@@ -1,6 +1,7 @@
 package ru.kvo.Controller;
 
 import org.springframework.http.ResponseEntity;
+import ru.kvo.Dto.MessageUpdateRequest;
 import ru.kvo.Dto.SearchRequest;
 import ru.kvo.Entity.Message;
 import ru.kvo.Service.MessageService;
@@ -11,7 +12,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +101,15 @@ public class MessageController {
             response.put("error", e.getMessage());
         }
 
+        return ResponseEntity.ok(response);
+    }
+    @PostMapping("/api/message/{id}/update")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateMessageRecipients(
+            @PathVariable Long id,
+            @RequestBody MessageUpdateRequest updateRequest) {
+
+        Map<String, Object> response = messageService.updateMessageRecipients(id, updateRequest);
         return ResponseEntity.ok(response);
     }
 
